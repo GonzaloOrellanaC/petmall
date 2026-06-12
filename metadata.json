@@ -1,0 +1,6 @@
+{
+  "name": "Petmall",
+  "description": "Ecosistema digital integrado: Marketplace B2C hiperlocal y SaaS ERP de control de inventario y Punto de Venta (POS) para tiendas y clínicas de mascotas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
