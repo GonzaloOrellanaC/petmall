@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { usePetmallStore } from '../store.js';
-import { Star, Shield, HelpCircle, ArrowLeft, Check, Clock, User, Calendar, MapPin, Truck, HelpCircle as HelpIcon, ChevronRight } from 'lucide-react';
+import { Star, Shield, HelpCircle, ArrowLeft, Check, Clock, User, Calendar, MapPin, Truck, HelpCircle as HelpIcon, ChevronRight, Share2, Copy } from 'lucide-react';
 import { CatalogItem } from '../types.js';
 
 export default function ItemDetail() {
@@ -311,6 +311,66 @@ export default function ItemDetail() {
               >
                 {isProduct ? 'Añadir al Carrito' : 'Confirmar Reserva de Cita'}
               </button>
+            </div>
+
+            {/* Social Sharing Widget */}
+            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-150 text-left">
+              <span className="block text-3xs font-extrabold text-[#102948] uppercase tracking-wider mb-2 font-mono flex items-center gap-1">
+                <Share2 className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> COMPARTIR CON VISTA PREVIA
+              </span>
+              <p className="text-[10px] text-gray-500 leading-normal mb-3">
+                Comparte este {isProduct ? 'producto' : 'servicio'} en redes sociales. El destinatario verá una linda tarjeta con imagen, precio y descripción optimizada.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shareUrl = window.location.href;
+                    navigator.clipboard?.writeText(shareUrl);
+                    alert('✓ ¡Enlace copiado al portapapeles!');
+                  }}
+                  className="px-2 py-1.5 bg-white hover:bg-slate-50 border border-gray-200 text-[10px] font-extrabold text-gray-700 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none"
+                >
+                  <Copy className="w-3.5 h-3.5 text-gray-400" />
+                  Copiar Enlace
+                </button>
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent('Mira este ' + (isProduct ? 'producto' : 'servicio') + ' en Petmall Chile: ' + (item?.title || 'Destacado') + ' ' + window.location.href)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white text-[10px] font-extrabold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+                >
+                  <span>💬 WhatsApp</span>
+                </a>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[9px] font-extrabold">
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-md flex items-center justify-center gap-1 transition-colors"
+                >
+                  Facebook
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Echa un vistazo a ' + (item?.title || 'Petmall') + ' en Petmall Chile!')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-md flex items-center justify-center gap-1 transition-colors"
+                >
+                  X / Threads
+                </a>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Echa un vistazo a ' + (item?.title || 'Petmall') + ' en Petmall Chile!')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1 bg-[#0088cc] hover:bg-[#0077b3] text-white rounded-md flex items-center justify-center gap-1 transition-colors"
+                >
+                  Telegram
+                </a>
+              </div>
             </div>
           </div>
         </div>

@@ -5,10 +5,11 @@
 
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { CatalogItem, Order, Store, SaaSPayment } from './src/types.js'; // typescript files would need matching js/ts extension
+import { CatalogItem, Order, Store, SaaSPayment, BlogPost } from './src/types.js'; // typescript files would need matching js/ts extension
 import { 
   connectMongoDB, 
   isMongoDbActive, 
@@ -17,6 +18,7 @@ import {
   CatalogItemDb, 
   OrderDb, 
   SaaSPaymentDb,
+  BlogPostDb,
   MEMORY_SEED_CATALOG, 
   MEMORY_SEED_SAAS_PAYMENTS,
   SEED_STORES, 
@@ -63,6 +65,85 @@ class LockManager {
 }
 
 const dbLock = new LockManager();
+
+// --- DELIVERY PARTNER TYPES & IN-MEMORY DATABASE ---
+export interface DeliveryPartner {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  vehicle: string;
+  fee: number;
+  coverageCenter: [number, number]; // [lat, lng]
+  coverageRadius: number; // in km
+  rating: number;
+  ratingsCount: number;
+  reviews?: { rating: number; comment: string; author: string; date: string }[];
+}
+
+let deliveryPartners: DeliveryPartner[] = [
+  {
+    id: 'dp_1',
+    name: 'Carlos Pérez',
+    email: 'carlos.envios@gmail.com',
+    phone: '+56 9 8765 4321',
+    vehicle: 'Auto',
+    fee: 2500,
+    coverageCenter: [-33.4489, -70.6693], // Santiago Centro
+    coverageRadius: 15,
+    rating: 4.8,
+    ratingsCount: 24,
+    reviews: [
+      { rating: 5, comment: 'Excelente servicio, muy rápido.', author: 'Sofía G.', date: '2026-06-28' },
+      { rating: 4, comment: 'Buen trato, llegó a tiempo.', author: 'Juan R.', date: '2026-06-25' }
+    ]
+  },
+  {
+    id: 'dp_2',
+    name: 'María José Valenzuela',
+    email: 'mariajose.delivery@outlook.cl',
+    phone: '+56 9 9123 4567',
+    vehicle: 'Moto',
+    fee: 1800,
+    coverageCenter: [-33.415, -70.600], // Providencia
+    coverageRadius: 8,
+    rating: 4.9,
+    ratingsCount: 42,
+    reviews: [
+      { rating: 5, comment: 'Llegó volando! Muy recomendada.', author: 'Andrés S.', date: '2026-06-29' }
+    ]
+  },
+  {
+    id: 'dp_3',
+    name: 'Juan Pablo Muñoz',
+    email: 'juanpablo.bici@gmail.com',
+    phone: '+56 9 7654 3210',
+    vehicle: 'Bicicleta',
+    fee: 1200,
+    coverageCenter: [-33.4372, -70.6345], // Bellavista / Recoleta
+    coverageRadius: 5,
+    rating: 4.7,
+    ratingsCount: 15,
+    reviews: [
+      { rating: 4, comment: 'Cuidado con el empaque, pero todo bien.', author: 'Camila L.', date: '2026-06-20' }
+    ]
+  },
+  {
+    id: 'dp_4',
+    name: 'John Doe (USA)',
+    email: 'john.delivery@petmall.com',
+    phone: '+1 415-555-0101',
+    vehicle: 'Auto',
+    fee: 5.0,
+    coverageCenter: [37.7749, -122.4194], // San Francisco
+    coverageRadius: 20,
+    rating: 4.9,
+    ratingsCount: 11,
+    reviews: [
+      { rating: 5, comment: 'Very fast shipping across SF!', author: 'BioShop Cust', date: '2026-06-29' }
+    ]
+  }
+];
 
 // --- IN-MEMORY DATABASE (Seeded with high-fidelity items matching screenshots) ---
 let stores: Store[] = [
@@ -250,6 +331,263 @@ let memoryUsers = [
   { email: 'comerciante3@petmall.com', role: 'STORE_OWNER', storeId: 'store_3', firstName: 'Mateo', lastName: 'Sánchez', avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=120' },
 ];
 
+let platformSettings = {
+  commissionRate: 5,
+  basicPlanPrice: 19990,
+  proPlanPrice: 39990,
+  enterprisePlanPrice: 79990,
+  activePilotCommunes: ['Santiago', 'Valparaíso', 'Viña del Mar', 'Concepción'],
+  marketingCoFundingRate: 20,
+  allowNewRegistrations: true,
+  searchMultiplier: 1.2
+};
+
+let adoptionPets = [
+  {
+    id: 'pet_1',
+    name: 'Simba',
+    type: 'Perro',
+    breed: 'Mestizo',
+    age: '2 años',
+    healthStatus: 'Sano / Vacunas al día',
+    foundation: 'Fundación Huellas Unidas',
+    description: 'Simba es muy sociable, adora jugar en parques y convive excelente con niños y otros perros.',
+    imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -33.435,
+    lng: -70.655 // ~2.1 km from Santiago Center
+  },
+  {
+    id: 'pet_2',
+    name: 'Mimi',
+    type: 'Gato',
+    breed: 'Romano Gris',
+    age: '5 meses',
+    healthStatus: 'Desparasitada / Esterilizada',
+    foundation: 'Agrupación Rescate Felino',
+    description: 'Mimi es de carácter sumamente apacible, romronea constante y ama dormir en el sofá.',
+    imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -33.475,
+    lng: -70.710 // ~4.8 km from Santiago Center
+  },
+  {
+    id: 'pet_3',
+    name: 'Cholo',
+    type: 'Perro',
+    breed: 'Mestizo Chileno',
+    age: '2 años',
+    healthStatus: 'Sano / Vacunado',
+    foundation: 'Refugio Garras y Patas',
+    description: 'Cholo es muy activo, ideal para familias que amen pasear. Se lleva bien con otros perritos.',
+    imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=350&q=80',
+    status: 'DISPONIBLE',
+    lat: -33.415,
+    lng: -70.600 // ~7.4 km from Santiago Center
+  },
+  {
+    id: 'pet_4',
+    name: 'Mila',
+    type: 'Gato',
+    breed: 'Romana',
+    age: '6 meses',
+    healthStatus: 'Sana / Vacunas al día',
+    foundation: 'Corporación S.O.S Gatos',
+    description: 'Mila es súper mimosa, educada en arenero. Busca departamento seguro.',
+    imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=350&q=80',
+    status: 'DISPONIBLE',
+    lat: -33.440,
+    lng: -70.770 // ~9.4 km from Santiago Center (under 10 km!)
+  },
+  {
+    id: 'pet_5',
+    name: 'Kayser',
+    type: 'Perro',
+    breed: 'Pastor Alemán',
+    age: '8 años',
+    healthStatus: 'Leal / Vacunas al día',
+    foundation: 'Grupo San Francisco',
+    description: 'Kayser es leal, calmado, guardián jubilado excelente para compañía de adultos.',
+    imageUrl: 'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=350&q=80',
+    status: 'DISPONIBLE',
+    lat: -33.510,
+    lng: -70.550 // ~13 km from Santiago Center (outside 10 km!)
+  },
+  {
+    id: 'pet_6',
+    name: 'Rocky',
+    type: 'Perro',
+    breed: 'Golden Retriever Mix',
+    age: '1 año',
+    healthStatus: 'Enérgico / Castrado',
+    foundation: 'Fundación Garras',
+    description: 'Rocky es un torbellino de amor. Le encanta correr tras la pelota y nadar.',
+    imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -33.560,
+    lng: -70.600 // ~14 km from Santiago Center
+  },
+  {
+    id: 'pet_7',
+    name: 'Luna',
+    type: 'Gato',
+    breed: 'Siamés Mix',
+    age: '3 años',
+    healthStatus: 'Sana / Esterilizada',
+    foundation: 'Rescate Felino Sur',
+    description: 'Luna es tímida al inicio, pero una vez que confía es sumamente dulce y habladora.',
+    imageUrl: 'https://images.unsplash.com/photo-1513360309081-36f5e878fc9e?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -33.720,
+    lng: -70.850 // ~42 km from Santiago Center
+  },
+  {
+    id: 'pet_8',
+    name: 'Bella',
+    type: 'Perro',
+    breed: 'Labrador Mestizo',
+    age: '4 años',
+    healthStatus: 'Sana / Esterilizada',
+    foundation: 'Refugio Valparaíso',
+    description: 'Bella es una perrita extremadamente cariñosa, obediente y adora tomar sol.',
+    imageUrl: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -33.0472,
+    lng: -71.6127 // ~100 km from Santiago (Valparaíso)
+  },
+  {
+    id: 'pet_9',
+    name: 'Lucas',
+    type: 'Perro',
+    breed: 'Mestizo Negro',
+    age: '5 años',
+    healthStatus: 'Sano / Vacunado',
+    foundation: 'Esperanza de Talca',
+    description: 'Lucas es un gran compañero de siestas, silencioso, educado y muy agradecido.',
+    imageUrl: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?auto=format&fit=crop&q=80&w=350',
+    status: 'DISPONIBLE',
+    lat: -35.4264,
+    lng: -71.6554 // ~225 km from Santiago Center (>200 km)
+  }
+];
+
+let promotionalMaterials = [
+  {
+    id: 'mat_1',
+    title: 'Kit de Calcomanías Oficiales Petmall',
+    description: 'Manual de marca y adhesivos vectoriales listos para imprimir y pegar en vitrinas de tu comercio.',
+    format: 'PDF Vectorial',
+    iconName: 'FileImage',
+    downloadUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300' // Mock image link
+  },
+  {
+    id: 'mat_2',
+    title: 'Plantilla de Bolsas Ecológicas Reutilizables',
+    description: 'Diseño personalizable con logo de tu e-Store para empaque ecológico certificado por la marca.',
+    format: 'ZIP / PNG HD',
+    iconName: 'ShoppingBag',
+    downloadUrl: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=300'
+  }
+];
+
+let platformAnnouncements = [
+  {
+    id: 'ann_1',
+    title: 'Actualización en Co-financiamiento de Anuncios Google & Meta',
+    content: 'A partir de este mes, Petmall subvencionará hasta un 20% del presupuesto de pauta activa en las comunas piloto del país. Configura tu simulador de pauta en Ajustes.',
+    date: '2026-06-20',
+    type: 'MARKETING_PLAN',
+    important: true
+  },
+  {
+    id: 'ann_2',
+    title: 'Nueva Guía de Tenencia Responsable - Ley Cholito',
+    content: 'Sincronizamos un nuevo set de categorías orgánicas para impulsar tu SEO. Revisa la pestaña de Plan de Marketing para copiar los nuevos borradores de prensa.',
+    date: '2026-06-18',
+    type: 'BUSINESS_GUIDELINES',
+    important: false
+  }
+];
+
+let blogPosts: BlogPost[] = [
+  {
+    id: 'blog_1',
+    storeId: 'store_1',
+    title: 'Nutrición Barf: El Secreto de un Pelaje Brillante y Fuerte',
+    slug: 'nutricion-barf-pelaje-brillante',
+    excerpt: 'Descubre por qué alimentar a tu mascota con ingredientes 100% biológicamente apropiados transforma su salud y previene el letargo alimenticio.',
+    content: `## Alimentación Barf para tus pequeños compañeros
+
+La alimentación biológicamente apropiada (BARF) es mucho más que una tendencia vacía: consiste en volver a las raíces evolutivas de nuestros caninos y felinos.
+
+### Beneficios Principales observados:
+1. **Pelaje sedoso y fuerte**: Gracias a la retención intacta de aceites esenciales y aminoácidos naturales.
+2. **Digestión optimizada**: Reducción drástica del tamaño e intolerancia fecal.
+3. **Energía balanceada**: Eliminación del letargo post-alimenticio de los carbohidratos procesados.
+
+*¡Visita nuestro local "Don Jorge\'s BioShop" para resolver todas tus dudas sobre la transición segura de tu mascota!*`,
+    bannerUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&q=80',
+    authorEmail: 'comerciante1@petmall.com',
+    authorName: 'Juan Rodríguez',
+    status: 'PUBLISHED',
+    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+    tags: ['Salud', 'Nutrición', 'Natural'],
+    views: 45,
+    likes: 12,
+    dislikes: 1,
+    likedBy: [],
+    dislikedBy: [],
+    comments: [
+      {
+        id: 'c1',
+        authorEmail: 'buyer_test@petmall.com',
+        authorRole: 'CUSTOMER',
+        content: 'Excelente artículo! He notado una gran mejora en mi perrito pastor alemán desde que empezamos con BARF.',
+        createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
+      },
+      {
+        id: 'c2',
+        authorEmail: 'comerciante1@petmall.com',
+        authorRole: 'STORE_OWNER',
+        content: 'Muchas gracias por comentar! Así es, el pelaje brilla casi de inmediato.',
+        createdAt: new Date(Date.now() - 3600000 * 22).toISOString(),
+        parentId: 'c1'
+      }
+    ]
+  },
+  {
+    id: 'blog_2',
+    storeId: 'store_1',
+    title: 'La importancia del juego cognitivo en cachorros de departamento',
+    slug: 'juego-cognitivo-en-cachorros',
+    excerpt: 'Evita problemas de ansiedad por separación y frustración estimulando la mente de tu mascota con estos sencillos ejercicios de olfato.',
+    content: `## Estimulación y Enriquecimiento Ambiental
+
+Cuando pensamos en el desarrollo de un cachorro, a menudo nos limitamos al ejercicio físico. No obstante, el cansancio mental es tanto o más beneficioso.
+
+### Ideas para resolver hoy:
+- **Alfombras de Olfato**: Excelente recurso de calma pasiva.
+- **Juguetes de Relleno Congelables**: Estimula la masticación segura desestresante.
+- **Búsqueda del Tesoro**: Esconde premios orgánicos de soga por la sala.
+
+*Encuentra nuestra selección exclusiva de juguetes de soga de algodón orgánico y material interactivo libre de microplásticos en nuestro catálogo online.*`,
+    bannerUrl: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=800&q=80',
+    authorEmail: 'comerciante1@petmall.com',
+    authorName: 'Juan Rodríguez',
+    status: 'PUBLISHED',
+    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+    tags: ['Acondicionamiento', 'Juguetes', 'Bienestar'],
+    views: 32,
+    likes: 8,
+    dislikes: 0,
+    likedBy: [],
+    dislikedBy: [],
+    comments: []
+  }
+];
+
 let saasPayments: SaaSPayment[] = [...MEMORY_SEED_SAAS_PAYMENTS];
 
 // --- SERVER-SENT EVENTS (SSE) BROADCAST BUS ---
@@ -294,6 +632,7 @@ async function startServer() {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
+    res.flushHeaders();
 
     res.write('data: {"type":"CONNECTED"}\n\n');
     sseClients.push(res);
@@ -403,6 +742,127 @@ async function startServer() {
       success: true, 
       message: `La tienda ${storeId} ha sido eliminada junto con todos sus colaboradores, productos, servicios y registros de pago asociados.` 
     });
+  });
+
+  // --- PLATFORM SUPER ADMIN SETTINGS & ANNOUNCEMENTS ---
+  app.get('/api/platform/settings', (req, res) => {
+    return res.json(platformSettings);
+  });
+
+  app.post('/api/platform/settings', (req, res) => {
+    const { commissionRate, basicPlanPrice, proPlanPrice, enterprisePlanPrice, activePilotCommunes, marketingCoFundingRate, allowNewRegistrations, searchMultiplier } = req.body;
+    if (commissionRate !== undefined) platformSettings.commissionRate = Number(commissionRate);
+    if (basicPlanPrice !== undefined) platformSettings.basicPlanPrice = Number(basicPlanPrice);
+    if (proPlanPrice !== undefined) platformSettings.proPlanPrice = Number(proPlanPrice);
+    if (enterprisePlanPrice !== undefined) platformSettings.enterprisePlanPrice = Number(enterprisePlanPrice);
+    if (activePilotCommunes !== undefined) platformSettings.activePilotCommunes = activePilotCommunes;
+    if (marketingCoFundingRate !== undefined) platformSettings.marketingCoFundingRate = Number(marketingCoFundingRate);
+    if (allowNewRegistrations !== undefined) platformSettings.allowNewRegistrations = !!allowNewRegistrations;
+    if (searchMultiplier !== undefined) platformSettings.searchMultiplier = Number(searchMultiplier);
+
+    broadcastToClients('SETTINGS_UPDATED', platformSettings);
+    return res.json({ success: true, settings: platformSettings });
+  });
+
+  // --- ADOPTION PETS ENDPOINTS ---
+  app.get('/api/platform/adoption', (req, res) => {
+    return res.json(adoptionPets);
+  });
+
+  app.post('/api/platform/adoption', (req, res) => {
+    const { name, type, breed, age, healthStatus, foundation, description, imageUrl, status, lat, lng } = req.body;
+    if (!name || !type || !foundation) {
+      return res.status(400).json({ error: 'Nombre, tipo y fundación son obligatorios.' });
+    }
+
+    const newPet = {
+      id: `pet_${Date.now()}`,
+      name,
+      type,
+      breed: breed || 'Mestizo',
+      age: age || 'Edad no especificada',
+      healthStatus: healthStatus || 'Sano',
+      foundation,
+      description: description || '',
+      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=350',
+      status: status || 'DISPONIBLE',
+      lat: lat !== undefined ? Number(lat) : -33.4489 + (Math.random() - 0.5) * 0.08,
+      lng: lng !== undefined ? Number(lng) : -70.6693 + (Math.random() - 0.5) * 0.08
+    };
+
+    adoptionPets.push(newPet);
+    broadcastToClients('ADOPTION_RELOAD', adoptionPets);
+    return res.status(201).json(newPet);
+  });
+
+  app.delete('/api/platform/adoption/:id', (req, res) => {
+    const { id } = req.params;
+    adoptionPets = adoptionPets.filter(p => p.id !== id);
+    broadcastToClients('ADOPTION_RELOAD', adoptionPets);
+    return res.json({ success: true });
+  });
+
+  // --- PROMOTIONAL MATERIALS ENDPOINTS ---
+  app.get('/api/platform/promotional', (req, res) => {
+    return res.json(promotionalMaterials);
+  });
+
+  app.post('/api/platform/promotional', (req, res) => {
+    const { title, description, format, iconName, downloadUrl } = req.body;
+    if (!title || !downloadUrl) {
+      return res.status(400).json({ error: 'Título y link para descargar son requeridos.' });
+    }
+
+    const newMaterial = {
+      id: `mat_${Date.now()}`,
+      title,
+      description: description || 'Material para comercios socios.',
+      format: format || 'PDF',
+      iconName: iconName || 'FileText',
+      downloadUrl
+    };
+
+    promotionalMaterials.push(newMaterial);
+    broadcastToClients('PROMOTIONAL_RELOAD', promotionalMaterials);
+    return res.status(201).json(newMaterial);
+  });
+
+  app.delete('/api/platform/promotional/:id', (req, res) => {
+    const { id } = req.params;
+    promotionalMaterials = promotionalMaterials.filter(m => m.id !== id);
+    broadcastToClients('PROMOTIONAL_RELOAD', promotionalMaterials);
+    return res.json({ success: true });
+  });
+
+  app.get('/api/platform/announcements', (req, res) => {
+    return res.json(platformAnnouncements);
+  });
+
+  app.post('/api/platform/announcements', (req, res) => {
+    const { title, content, type, important } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Título y contenido son requeridos.' });
+    }
+
+    const newAnnouncement = {
+      id: `ann_${Date.now()}`,
+      title,
+      content,
+      type: type || 'GENERAL',
+      important: !!important,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    platformAnnouncements.unshift(newAnnouncement);
+    broadcastToClients('ANNOUNCEMENT_CREATED', newAnnouncement);
+    return res.status(201).json(newAnnouncement);
+  });
+
+  app.delete('/api/platform/announcements/:id', (req, res) => {
+    const { id } = req.params;
+    platformAnnouncements = platformAnnouncements.filter(a => a.id !== id);
+    broadcastToClients('ANNOUNCEMENT_DELETED', { id });
+    return res.json({ success: true });
   });
 
   // Get SaaS Payments (auditoría de pagos SaaS de tiendas)
@@ -557,7 +1017,7 @@ async function startServer() {
 
     const finalFirstName = firstName || 'Colaborador';
     const finalLastName = lastName || 'Petmall';
-    const finalAvatarUrl = avatarUrl || `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?auto=format&fit=crop&q=80&w=120`;
+    const finalAvatarUrl = avatarUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Cpath d='M50 56a16 16 0 100-32 16 16 0 000 32zm0 4c-18.5 0-32 10.5-32 20v4h64v-4c0-9.5-13.5-20-32-20z' fill='%23475569'/%3E%3C/svg%3E";
 
     if (isMongoDbActive()) {
       try {
@@ -604,6 +1064,324 @@ async function startServer() {
     } else {
       memoryUsers = memoryUsers.filter(u => !(u.storeId === storeId && u.email.toLowerCase() === email.toLowerCase()));
       return res.json({ success: true });
+    }
+  });
+
+  // --- USER BLOG PERMISSION MANAGEMENT ---
+  app.put('/api/stores/:storeId/users/:email/blog-permission', async (req, res) => {
+    const { storeId, email } = req.params;
+    const { allowBlog } = req.body;
+
+    if (isMongoDbActive()) {
+      try {
+        const updated = await (UserDb as any).findOneAndUpdate(
+          { storeId, email: email.toLowerCase() },
+          { allowBlog: !!allowBlog },
+          { new: true }
+        );
+        if (updated) {
+          return res.json(updated);
+        }
+        return res.status(404).json({ error: 'Colaborador no encontrado en la base de datos' });
+      } catch (err: any) {
+        return res.status(500).json({ error: 'Error al actualizar permisos en MongoDB: ' + err.message });
+      }
+    } else {
+      const idx = memoryUsers.findIndex(u => u.storeId === storeId && u.email.toLowerCase() === email.toLowerCase());
+      if (idx !== -1) {
+        (memoryUsers[idx] as any).allowBlog = !!allowBlog;
+        return res.json(memoryUsers[idx]);
+      }
+      return res.status(404).json({ error: 'Colaborador no encontrado en memoria' });
+    }
+  });
+
+  // --- BLOG ENDPOINTS ---
+
+  // Get all blog posts or filter by storeId
+  app.get('/api/blogs', async (req, res) => {
+    const { storeId } = req.query;
+
+    if (isMongoDbActive()) {
+      try {
+        const query = storeId ? { storeId: String(storeId) } : {};
+        const dbPosts = await (BlogPostDb as any).find(query).sort({ createdAt: -1 });
+        return res.json(dbPosts);
+      } catch (err: any) {
+        console.error('[MongoDB Get Blogs Error]', err.message);
+      }
+    }
+
+    if (storeId) {
+      const filtered = blogPosts.filter(p => p.storeId === String(storeId));
+      return res.json(filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }
+    return res.json(blogPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+  });
+
+  // Create or Update a blog post
+  app.post('/api/blogs', async (req, res) => {
+    const data = req.body;
+
+    if (!data.storeId || !data.title || !data.content || !data.authorEmail) {
+      return res.status(400).json({ error: 'Datos de blog incompletos. Se requieren storeId, título, contenido y correo de autor.' });
+    }
+
+    const docId = data.id || `blog_${Math.random().toString(36).substring(2, 9)}`;
+    const isEdit = !!data.id;
+    const now = new Date().toISOString();
+
+    const finalPost = {
+      id: docId,
+      storeId: data.storeId,
+      title: data.title,
+      slug: data.slug || data.title.toLowerCase().trim().replace(/[\s\W]+/g, '-'),
+      excerpt: data.excerpt || (data.content.substring(0, 150) + '...'),
+      content: data.content,
+      bannerUrl: data.bannerUrl || 'https://images.unsplash.com/photo-1541599540903-216a46ca1bf0?w=800&q=80',
+      authorEmail: data.authorEmail.toLowerCase(),
+      authorName: data.authorName || 'Autor Petmall',
+      status: data.status || 'DRAFT',
+      tags: data.tags || [],
+      createdAt: data.createdAt || now,
+      updatedAt: now,
+    };
+
+    if (isMongoDbActive()) {
+      try {
+        if (isEdit) {
+          const updated = await (BlogPostDb as any).findOneAndUpdate({ id: docId }, finalPost, { new: true });
+          if (updated) {
+            broadcastToClients('BLOG_UPDATED', updated);
+            return res.json(updated);
+          }
+        } else {
+          const created = await (BlogPostDb as any).create(finalPost);
+          broadcastToClients('BLOG_CREATED', created);
+          return res.status(201).json(created);
+        }
+      } catch (err: any) {
+        console.error('[MongoDB Save Blog Error]', err.message);
+        return res.status(500).json({ error: 'Error al sincronizar con BD: ' + err.message });
+      }
+    }
+
+    // Fallback to memory
+    if (isEdit) {
+      const idx = blogPosts.findIndex(p => p.id === docId);
+      if (idx !== -1) {
+        blogPosts[idx] = { ...blogPosts[idx], ...finalPost };
+        broadcastToClients('BLOG_UPDATED', blogPosts[idx]);
+        return res.json(blogPosts[idx]);
+      }
+    } else {
+      blogPosts.push(finalPost);
+      broadcastToClients('BLOG_CREATED', finalPost);
+      return res.status(201).json(finalPost);
+    }
+    
+    return res.status(404).json({ error: 'Artículo de blog no encontrado para editar.' });
+  });
+
+  // Delete a blog post
+  app.delete('/api/blogs/:id', async (req, res) => {
+    const { id } = req.params;
+
+    if (isMongoDbActive()) {
+      try {
+        await (BlogPostDb as any).deleteOne({ id });
+        broadcastToClients('BLOG_DELETED', { id });
+        return res.json({ success: true });
+      } catch (err: any) {
+        return res.status(500).json({ error: 'Error al borrar artículo en MongoDB: ' + err.message });
+      }
+    } else {
+      blogPosts = blogPosts.filter(p => p.id !== id);
+      broadcastToClients('BLOG_DELETED', { id });
+      return res.json({ success: true });
+    }
+  });
+
+  // Increment view counter for a blog post
+  app.post('/api/blogs/:id/view', async (req, res) => {
+    const { id } = req.params;
+    if (isMongoDbActive()) {
+      try {
+        const updated = await (BlogPostDb as any).findOneAndUpdate(
+          { id },
+          { $inc: { views: 1 } },
+          { new: true }
+        );
+        if (updated) {
+          broadcastToClients('BLOG_UPDATED', updated);
+          return res.json(updated);
+        }
+      } catch (err: any) {
+        console.error('[MongoDB Inc Views Error]', err.message);
+      }
+    }
+
+    // fallback memory
+    const post = blogPosts.find(p => p.id === id);
+    if (post) {
+      post.views = (post.views || 0) + 1;
+      broadcastToClients('BLOG_UPDATED', post);
+      return res.json(post);
+    }
+    return res.status(404).json({ error: 'Post no encontrado' });
+  });
+
+  // Submit reaction / evaluate blog post (Like or Dislike)
+  app.post('/api/blogs/:id/react', async (req, res) => {
+    const { id } = req.params;
+    const { action, email } = req.body; // action: 'like' | 'dislike', email: commenter email
+
+    if (!email) {
+      return res.status(400).json({ error: 'Se requiere validar usuario con correo para evaluar.' });
+    }
+
+    if (isMongoDbActive()) {
+      try {
+        let post = await (BlogPostDb as any).findOne({ id });
+        if (!post) return res.status(404).json({ error: 'Post no encontrado en MongoDB' });
+
+        let likedBy = post.likedBy || [];
+        let dislikedBy = post.dislikedBy || [];
+
+        if (action === 'like') {
+          if (likedBy.includes(email)) {
+            likedBy = likedBy.filter((e: string) => e !== email);
+          } else {
+            likedBy.push(email);
+            dislikedBy = dislikedBy.filter((e: string) => e !== email);
+          }
+        } else if (action === 'dislike') {
+          if (dislikedBy.includes(email)) {
+            dislikedBy = dislikedBy.filter((e: string) => e !== email);
+          } else {
+            dislikedBy.push(email);
+            likedBy = likedBy.filter((e: string) => e !== email);
+          }
+        }
+
+        const likes = likedBy.length;
+        const dislikes = dislikedBy.length;
+
+        const updated = await (BlogPostDb as any).findOneAndUpdate(
+          { id },
+          { likedBy, dislikedBy, likes, dislikes },
+          { new: true }
+        );
+
+        if (updated) {
+          broadcastToClients('BLOG_UPDATED', updated);
+          return res.json(updated);
+        }
+      } catch (err: any) {
+        console.error('[MongoDB React Error]', err.message);
+      }
+    }
+
+    // fallback memory
+    const post = blogPosts.find(p => p.id === id);
+    if (post) {
+      let likedBy = post.likedBy || [];
+      let dislikedBy = post.dislikedBy || [];
+
+      if (action === 'like') {
+        if (likedBy.includes(email)) {
+          likedBy = likedBy.filter(e => e !== email);
+        } else {
+          likedBy.push(email);
+          dislikedBy = dislikedBy.filter(e => e !== email);
+        }
+      } else if (action === 'dislike') {
+        if (dislikedBy.includes(email)) {
+          dislikedBy = dislikedBy.filter(e => e !== email);
+        } else {
+          dislikedBy.push(email);
+          likedBy = likedBy.filter(e => e !== email);
+        }
+      }
+
+      post.likedBy = likedBy;
+      post.dislikedBy = dislikedBy;
+      post.likes = likedBy.length;
+      post.dislikes = dislikedBy.length;
+
+      broadcastToClients('BLOG_UPDATED', post);
+      return res.json(post);
+    }
+
+    return res.status(404).json({ error: 'Post no encontrado en memoria' });
+  });
+
+  // Threaded comments endpoint
+  app.post('/api/blogs/:id/comment', async (req, res) => {
+    const { id } = req.params;
+    const { authorEmail, authorRole, content, parentId } = req.body;
+
+    if (!authorEmail || !authorRole || !content) {
+      return res.status(400).json({ error: 'Comentario incompleto. Se requieren correo de autor, rol y contenido.' });
+    }
+
+    const commentId = `comment_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newComment = {
+      id: commentId,
+      authorEmail,
+      authorRole,
+      content,
+      createdAt: new Date().toISOString(),
+      parentId: parentId || undefined
+    };
+
+    if (isMongoDbActive()) {
+      try {
+        const updated = await (BlogPostDb as any).findOneAndUpdate(
+          { id },
+          { $push: { comments: newComment } },
+          { new: true }
+        );
+        if (updated) {
+          broadcastToClients('BLOG_UPDATED', updated);
+          return res.json(updated);
+        }
+      } catch (err: any) {
+        console.error('[MongoDB Comment Error]', err.message);
+      }
+    }
+
+    // fallback memory
+    const post = blogPosts.find(p => p.id === id);
+    if (post) {
+      if (!post.comments) post.comments = [];
+      post.comments.push(newComment);
+      broadcastToClients('BLOG_UPDATED', post);
+      return res.json(post);
+    }
+
+    return res.status(404).json({ error: 'Post no encontrado' });
+  });
+
+  // --- UPGRADE STORE PLAN ENDPOINT ---
+  app.post('/api/stores/:storeId/upgrade', async (req, res) => {
+    const { storeId } = req.params;
+    const { planType, planName } = req.body;
+
+    if (isMongoDbActive()) {
+      try {
+        const updated = await (StoreDb as any).findOneAndUpdate(
+          { id: storeId },
+          { planType, planName },
+          { new: true }
+        );
+        broadcastToClients('STORE_UPDATED', updated);
+        return res.json(updated);
+      } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+      }
+    } else {
+      return res.json({ id: storeId, planType, planName, success: true });
     }
   });
 
@@ -1240,7 +2018,7 @@ async function startServer() {
 
   // Online Checkout (Race Condition Protection for Digital Stock & Service Booking Slots)
   app.post('/api/checkout', async (req, res) => {
-    const { items, storeId, orderType } = req.body; 
+    const { items, storeId, orderType, deliveryPartnerId, deliveryFee, deliveryAddressCoords, deliveryAddressText } = req.body; 
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'No se enviaron ítems para pagar' });
@@ -1368,9 +2146,15 @@ async function startServer() {
         paymentStatus: 'PAID',
         orderType: orderType || 'DELIVERY',
         status: orderType === 'SERVICE_BOOKING' ? 'BOOKED' : 'PREPARING',
-        total: total,
-        createdAt: new Date().toISOString()
-      };
+        total: total + (deliveryFee ? Number(deliveryFee) : 0),
+        createdAt: new Date().toISOString(),
+        // Private delivery extension fields:
+        deliveryPartnerId,
+        deliveryFee: deliveryFee ? Number(deliveryFee) : undefined,
+        deliveryAddressCoords,
+        deliveryAddressText,
+        deliveryStatus: deliveryPartnerId ? 'CONFIRMED' : undefined
+      } as any;
 
       orders.push(newOrder);
 
@@ -1398,17 +2182,252 @@ async function startServer() {
     }
   });
 
+  // --- PRIVATE DELIVERY PARTNERS NETWORK ENDPOINTS ---
+  app.get('/api/delivery/partners', (req, res) => {
+    res.json(deliveryPartners);
+  });
+
+  app.post('/api/delivery/partners', (req, res) => {
+    const { name, email, phone, vehicle, fee, coverageCenter, coverageRadius } = req.body;
+    if (!name || !email || !phone || !vehicle || !fee || !coverageCenter || !coverageRadius) {
+      return res.status(400).json({ error: 'Todos los campos son obligatorios para inscribirse.' });
+    }
+    const newPartner: DeliveryPartner = {
+      id: 'dp_' + Math.random().toString(36).substring(2, 9),
+      name,
+      email,
+      phone,
+      vehicle,
+      fee: Number(fee),
+      coverageCenter: [Number(coverageCenter[0]), Number(coverageCenter[1])],
+      coverageRadius: Number(coverageRadius),
+      rating: 5.0,
+      ratingsCount: 0,
+      reviews: []
+    };
+    deliveryPartners.push(newPartner);
+    res.status(201).json({ success: true, partner: newPartner });
+  });
+
+  app.post('/api/delivery/partners/:id/rate', (req, res) => {
+    const { id } = req.params;
+    const { rating, comment, author } = req.body;
+    const partner = deliveryPartners.find(dp => dp.id === id);
+    if (!partner) {
+      return res.status(404).json({ error: 'Repartidor no encontrado' });
+    }
+    const numRating = Number(rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ error: 'Calificación inválida.' });
+    }
+    if (!partner.reviews) partner.reviews = [];
+    partner.reviews.push({
+      rating: numRating,
+      comment: comment || '',
+      author: author || 'Comprador Petmall',
+      date: new Date().toISOString().split('T')[0]
+    });
+    const sum = partner.reviews.reduce((acc, curr) => acc + curr.rating, 0);
+    partner.ratingsCount = partner.reviews.length;
+    partner.rating = Number((sum / partner.ratingsCount).toFixed(1));
+
+    res.json({ success: true, partner });
+  });
+
+
 
   // --- CHAT ENDPOINTS / OTHER INTEGRATION CHANNELS ---
   // Default to SPA entry handler later
 
   // Vite Integration for dev
+  let viteInstance: any = null;
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
+    viteInstance = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
-    app.use(vite.middlewares);
+  }
+
+  // HTML SEO Middleware for Social Sharing Previews (WhatsApp, Facebook, X, etc.)
+  const serveHtmlWithMeta = async (req: express.Request, res: express.Response, meta: { title: string; description: string; image: string }) => {
+    try {
+      const isProd = process.env.NODE_ENV === 'production';
+      const indexPath = isProd 
+        ? path.join(process.cwd(), 'dist', 'index.html')
+        : path.join(process.cwd(), 'index.html');
+      
+      let html = '';
+      try {
+        html = fs.readFileSync(indexPath, 'utf-8');
+      } catch (err) {
+        html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Petmall</title></head><body><div id="root"></div></body></html>`;
+      }
+
+      if (!isProd && viteInstance) {
+        html = await viteInstance.transformIndexHtml(req.originalUrl, html);
+      }
+
+      const absoluteUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const escapedTitle = meta.title.replace(/"/g, '&quot;');
+      const escapedDesc = meta.description.replace(/"/g, '&quot;').replace(/\n/g, ' ');
+
+      const metaTags = `
+    <title>${escapedTitle}</title>
+    <meta name="description" content="${escapedDesc}" />
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${escapedTitle}" />
+    <meta property="og:description" content="${escapedDesc}" />
+    <meta property="og:image" content="${meta.image}" />
+    <meta property="og:url" content="${absoluteUrl}" />
+    <meta property="og:site_name" content="Petmall Chile" />
+    <!-- Twitter / X / Threads -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapedTitle}" />
+    <meta name="twitter:description" content="${escapedDesc}" />
+    <meta name="twitter:image" content="${meta.image}" />
+    <meta name="twitter:url" content="${absoluteUrl}" />
+      `;
+
+      if (html.includes('<title>Petmall</title>')) {
+        html = html.replace('<title>Petmall</title>', metaTags);
+      } else if (html.includes('</head>')) {
+        html = html.replace('</head>', `${metaTags}\n</head>`);
+      }
+
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(200).send(html);
+    } catch (error: any) {
+      console.error('[SEO Middleware Error]', error.message);
+      return res.status(500).send('Internal Server Error');
+    }
+  };
+
+  app.get([
+    '/',
+    '/demo',
+    '/item/:id',
+    '/demo/item/:id',
+    '/store/:id',
+    '/demo/store/:id',
+    '/store/:id/blogs',
+    '/demo/store/:id/blogs',
+    '/store/:id/blogs/:blogId',
+    '/demo/store/:id/blogs/:blogId',
+    '/blogs',
+    '/demo/blogs'
+  ], async (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+
+    try {
+      let title = 'Petmall Chile | Ecosistema Omnicanal para Mascotas';
+      let description = 'La red de tiendas de mascotas, clínicas veterinarias y estéticas premium en Chile con ERP SaaS integrado.';
+      let image = 'https://images.unsplash.com/photo-1544568100-847a948585b9?w=800&q=80';
+
+      const pathParts = req.path.split('/');
+      const isItem = req.path.includes('/item/');
+      const isStore = req.path.includes('/store/') && !req.path.includes('/blogs');
+      const isStoreBlogs = req.path.includes('/store/') && req.path.endsWith('/blogs');
+      const isBlogPost = req.path.includes('/store/') && req.path.includes('/blogs/') && !req.path.endsWith('/blogs');
+
+      if (isItem) {
+        const itemId = req.params.id || pathParts[pathParts.length - 1];
+        let item;
+        if (isMongoDbActive()) {
+          try {
+            item = await (CatalogItemDb as any).findOne({ id: itemId });
+          } catch (e) {}
+        }
+        if (!item) {
+          item = catalog.find(i => i.id === itemId);
+        }
+
+        if (item) {
+          title = `${item.title} | Petmall Chile`;
+          description = item.description || `Encuentra ${item.title} en nuestra red de tiendas. Calidad y salud para tu mascota al mejor precio.`;
+          image = item.images && item.images[0] ? item.images[0] : image;
+        }
+      } else if (isBlogPost) {
+        const blogId = req.params.blogId || pathParts[pathParts.length - 1];
+        let post;
+        if (isMongoDbActive()) {
+          try {
+            post = await (BlogPostDb as any).findOne({ id: blogId });
+          } catch (e) {}
+        }
+        if (!post) {
+          post = blogPosts.find(p => p.id === blogId);
+        }
+
+        if (post) {
+          let store;
+          if (isMongoDbActive()) {
+            try {
+              store = await (StoreDb as any).findOne({ id: post.storeId });
+            } catch (e) {}
+          }
+          if (!store) {
+            store = stores.find(s => s.id === post.storeId);
+          }
+
+          title = `${post.title} | Blog de ${store ? store.name : 'Petmall'}`;
+          description = post.excerpt || post.content?.substring(0, 160).replace(/[#*`\n]/g, ' ') || `Lee nuestra última publicación sobre bienestar animal.`;
+          image = post.bannerUrl || image;
+        }
+      } else if (isStoreBlogs) {
+        const storeIdx = pathParts.indexOf('store');
+        const storeId = storeIdx !== -1 ? pathParts[storeIdx + 1] : null;
+        let store;
+        if (storeId) {
+          if (isMongoDbActive()) {
+            try {
+              store = await (StoreDb as any).findOne({ id: storeId });
+            } catch (e) {}
+          }
+          if (!store) {
+            store = stores.find(s => s.id === storeId);
+          }
+        }
+
+        if (store) {
+          title = `Blog Oficial de ${store.name} | Consejos de Mascotas`;
+          description = `Revisa las últimas guías de salud, noticias de tenencia responsable y consejos expertos de ${store.name}.`;
+          image = 'https://images.unsplash.com/photo-1544568100-847a948585b9?w=800&q=80';
+        }
+      } else if (isStore) {
+        const storeId = req.params.id || pathParts[pathParts.length - 1];
+        let store;
+        if (isMongoDbActive()) {
+          try {
+            store = await (StoreDb as any).findOne({ id: storeId });
+          } catch (e) {}
+        }
+        if (!store) {
+          store = stores.find(s => s.id === storeId);
+        }
+
+        if (store) {
+          title = `${store.name} | Petmall Chile`;
+          description = `Visita la e-Store oficial de ${store.name} en Petmall. Revisa su catálogo de productos y agenda servicios para tu mascota.`;
+          if (store.branding?.colors?.primary) {
+            image = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&q=80';
+          }
+        }
+      }
+
+      await serveHtmlWithMeta(req, res, { title, description, image });
+    } catch (err: any) {
+      console.error('[SEO Matcher Error]', err);
+      return next();
+    }
+  });
+
+  if (process.env.NODE_ENV !== 'production') {
+    if (viteInstance) {
+      app.use(viteInstance.middlewares);
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

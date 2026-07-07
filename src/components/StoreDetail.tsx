@@ -3,7 +3,8 @@ import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { usePetmallStore } from '../store.js';
 import { 
   Building2, Phone, Mail, MapPin, ArrowLeft, ShieldCheck, 
-  Sparkles, Star, ShoppingBag, Calendar, Check, ExternalLink, Brush
+  Sparkles, Star, ShoppingBag, Calendar, Check, ExternalLink, Brush,
+  Share2, Copy
 } from 'lucide-react';
 import { CatalogItem, Store } from '../types.js';
 
@@ -18,7 +19,27 @@ export default function StoreDetail() {
 
   const [store, setStore] = useState<Store | null>(null);
   const [themeMode, setThemeMode] = useState<'MARKETPLACE' | 'CMS' | 'CUSTOM'>('MARKETPLACE');
-  
+
+  // --- BLOG FRONTEND STATES & FETCHERS ---
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [blogsLoading, setBlogsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'catalog' | 'blog'>('catalog');
+
+  const fetchStoreBlogs = async (storeIdVal: string) => {
+    setBlogsLoading(true);
+    try {
+      const res = await fetch(`/api/blogs?storeId=${storeIdVal}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBlogPosts(data);
+      }
+    } catch (err) {
+      console.error('Error fetching blogs for storefront detail:', err);
+    } finally {
+      setBlogsLoading(false);
+    }
+  };
+
   // Custom color selectors
   const [customPrimary, setCustomPrimary] = useState('#102948');
   const [customAccent, setCustomAccent] = useState('#DABD83');
@@ -35,6 +56,7 @@ export default function StoreDetail() {
     const found = stores.find(s => s.id === id || toSlug(s.name) === id);
     if (found) {
       setStore(found);
+      fetchStoreBlogs(found.id);
       if (found.branding?.colors?.primary) {
         setCustomPrimary(found.branding.colors.primary);
       }
@@ -171,20 +193,76 @@ export default function StoreDetail() {
               </div>
 
               {/* Información de la Web Corporativa en la plataforma */}
-              <div className="mt-4 p-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
-                <div>
-                  <h4 className="text-3xs font-extrabold text-indigo-900 uppercase tracking-widest flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-700 animate-pulse" /> Sitio Web Propio en la Plataforma
-                  </h4>
-                  <p className="text-[11px] text-indigo-700 font-medium mt-1">
-                    Ficha y landing page corporativa oficial dentro del ecosistema ERP de <b>Petmall</b>.
-                  </p>
+              <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-3xl flex flex-col gap-3 text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-3xs font-extrabold text-indigo-900 uppercase tracking-widest flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-700 animate-pulse" /> Sitio Web Propio en la Plataforma
+                    </h4>
+                    <p className="text-[11px] text-indigo-700 font-medium mt-1">
+                      Ficha y landing page corporativa oficial dentro del ecosistema ERP de <b>Petmall</b>.
+                    </p>
+                  </div>
+                  <div className="bg-white/80 border border-indigo-150 px-3 py-1.5 rounded-lg shrink-0">
+                    <span className="text-[10px] font-sans text-gray-400 block font-bold uppercase leading-none">Dirección de Empresa Corporativa:</span>
+                    <span className="text-[11px] font-mono font-black text-indigo-900 mt-0.5 block select-all">
+                      /store/{store.id}
+                    </span>
+                  </div>
                 </div>
-                <div className="bg-white/80 border border-indigo-150 px-3 py-1.5 rounded-lg shrink-0">
-                  <span className="text-[10px] font-sans text-gray-400 block font-bold uppercase leading-none">Dirección de Empresa Corporativa:</span>
-                  <span className="text-[11px] font-mono font-black text-indigo-900 mt-0.5 block select-all">
-                    /store/{store.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || store.id}
+
+                {/* Social Sharing buttons */}
+                <div className="pt-3 border-t border-indigo-150/50">
+                  <span className="block text-[10px] font-extrabold text-[#102948] uppercase tracking-wide mb-2 font-mono flex items-center gap-1">
+                    <Share2 className="w-3.5 h-3.5 text-indigo-600 animate-pulse" /> COMPARTIR TIENDA CON VISTA PREVIA
                   </span>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-center text-[10px] font-extrabold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const shareUrl = window.location.href;
+                        navigator.clipboard?.writeText(shareUrl);
+                        alert('✓ ¡Enlace copiado al portapapeles!');
+                      }}
+                      className="px-2 py-1.5 bg-white hover:bg-slate-50 border border-indigo-200 text-indigo-900 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-indigo-500" />
+                      Copiar Link
+                    </button>
+                    <a
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent('Visita la e-Store oficial de ' + store.name + ' en Petmall Chile: ' + window.location.href)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-lg flex items-center justify-center gap-1 transition-colors text-center cursor-pointer"
+                    >
+                      WhatsApp
+                    </a>
+                    <a
+                      href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-lg flex items-center justify-center gap-1 transition-colors text-center cursor-pointer"
+                    >
+                      Facebook
+                    </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Visita la tienda ' + store.name + ' en Petmall Chile!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-lg flex items-center justify-center gap-1 transition-colors text-center cursor-pointer"
+                    >
+                      X / Threads
+                    </a>
+                    <a
+                      href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Visita la tienda ' + store.name + ' en Petmall Chile!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 bg-[#0088cc] hover:bg-[#0077b3] text-white rounded-lg flex items-center justify-center gap-1 transition-colors text-center cursor-pointer"
+                    >
+                      Telegram
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -295,149 +373,366 @@ export default function StoreDetail() {
       </div>
 
       {/* 3. Catalog Products & Services Showcases */}
-      <div className="max-w-7xl mx-auto px-4 mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Products Column (2/3 size) */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-100">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-              <div className="text-left">
-                <h3 className="text-lg font-serif font-black flex items-center gap-2 text-gray-800">
-                  <ShoppingBag className="w-5 h-5" style={{ color: activePrimary }} />
-                  Catálogo de Productos
-                </h3>
-                <p className="text-3xs text-gray-400 mt-0.5">Disponibles para envío a todo el país o click & collect.</p>
-              </div>
-              <span className="px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-3xs font-extrabold">
-                {products.length} productos
+      {/* Tab Navigation Option for stores supporting Blogs */}
+      {(store?.planType === 'control_omnicanal' || store?.planType === 'enterprise_elite') && (
+        <div className="max-w-7xl mx-auto px-4 mt-10">
+          <div className="flex gap-4 border-b border-gray-200 pb-px">
+            <button
+              onClick={() => setActiveTab('catalog')}
+              className={`pb-3 px-3 text-2xs uppercase tracking-wider font-extrabold relative transition-all cursor-pointer ${
+                activeTab === 'catalog' 
+                  ? 'text-gray-900 border-b-2 font-black' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              style={{ borderBottomColor: activeTab === 'catalog' ? activePrimary : 'transparent' }}
+            >
+              Catálogo de Servicios & Productos
+            </button>
+            <button
+              onClick={() => setActiveTab('blog')}
+              className={`pb-3 px-3 text-2xs uppercase tracking-wider font-extrabold relative transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'blog' 
+                  ? 'text-gray-900 border-b-2 font-black' 
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              style={{ borderBottomColor: activeTab === 'blog' ? activePrimary : 'transparent' }}
+            >
+              📖 Blog de Novedades
+              <span className="bg-emerald-50 text-emerald-700 text-[9px] font-black font-sans px-1.5 py-0.5 rounded-full border border-emerald-100 uppercase">
+                {blogPosts.filter(p => p.status === 'PUBLISHED').length}
               </span>
-            </div>
+            </button>
+          </div>
+        </div>
+      )}
 
-            {products.length === 0 ? (
-              <div className="py-12 text-center text-gray-400 font-sans text-xs flex flex-col items-center justify-center">
-                <p>No se encontraron productos registrados para esta empresa todavía.</p>
+      {/* Conditional Rendering Grid or Blog feed */}
+      {(activeTab === 'catalog' || !(store?.planType === 'control_omnicanal' || store?.planType === 'enterprise_elite')) ? (
+        <div className="max-w-7xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Products Column (2/3 size) */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-100">
+              <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                <div className="text-left">
+                  <h3 className="text-lg font-serif font-black flex items-center gap-2 text-gray-800">
+                    <ShoppingBag className="w-5 h-5" style={{ color: activePrimary }} />
+                    Catálogo de Productos
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-0.5">Disponibles para envío a todo el país o click & collect.</p>
+                </div>
+                <span className="px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-3xs font-extrabold">
+                  {products.length} productos
+                </span>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {products.slice(0, 12).map((item) => {
-                  const stock = item.productDetails?.stockDigital || 0;
-                  return (
-                    <div key={item.id} className="group bg-white rounded-2xl border border-gray-150 overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between">
-                      <div className="relative aspect-square overflow-hidden bg-gray-50">
-                        <img 
-                          src={item.images[0]} 
-                          alt={item.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" 
-                        />
-                        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-0.5 rounded-lg text-4xs font-black text-gray-700 uppercase shadow-xs">
-                          {item.category}
+
+              {products.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 font-sans text-xs flex flex-col items-center justify-center">
+                  <p>No se encontraron productos registrados para esta empresa todavía.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {products.slice(0, 12).map((item) => {
+                    const stock = item.productDetails?.stockDigital || 0;
+                    return (
+                      <div key={item.id} className="group bg-white rounded-2xl border border-gray-150 overflow-hidden hover:shadow-lg transition-all flex flex-col justify-between">
+                        <div className="relative aspect-square overflow-hidden bg-gray-50">
+                          <img 
+                            src={item.images[0]} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" 
+                          />
+                          <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-0.5 rounded-lg text-4xs font-black text-gray-700 uppercase shadow-xs">
+                            {item.category}
+                          </div>
+                        </div>
+
+                        <div className="p-4 flex-1 flex flex-col justify-between text-left">
+                          <div>
+                            <h4 className="font-serif font-black text-xs text-gray-850 hover:text-gray-900 line-clamp-2">
+                              {item.title}
+                            </h4>
+                            <p className="text-4xs text-gray-400 mt-1 line-clamp-2 font-sans font-medium">
+                              {item.description}
+                            </p>
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
+                            <div>
+                              <span className="text-3xs text-gray-400 font-sans block">Precio</span>
+                              <span className="font-serif font-black text-gray-900" style={{ color: activePrimary }}>
+                                ${item.price.toFixed(2)}
+                              </span>
+                            </div>
+                            
+                            <button 
+                              disabled={stock <= 0}
+                              onClick={() => {
+                                addToCart(item, 1);
+                                alert('Se ha agregado al carro de compras B2C');
+                              }}
+                              className="bg-[#102948] text-white hover:bg-opacity-95 font-sans font-bold text-3xs uppercase py-2 px-3.5 rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                              style={{ backgroundColor: activePrimary }}
+                            >
+                              {stock > 0 ? 'Agregar Carro' : 'Agotado'}
+                            </button>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
 
-                      <div className="p-4 flex-1 flex flex-col justify-between text-left">
-                        <div>
-                          <h4 className="font-serif font-black text-xs text-gray-850 hover:text-gray-900 line-clamp-2">
-                            {item.title}
-                          </h4>
-                          <p className="text-4xs text-gray-400 mt-1 line-clamp-2 font-sans font-medium">
-                            {item.description}
-                          </p>
-                        </div>
+          {/* Services Column (1/3 size) */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100">
+              <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                <div className="text-left">
+                  <h3 className="text-lg font-serif font-black flex items-center gap-2 text-gray-800">
+                    <Calendar className="w-5 h-5" style={{ color: activePrimary }} />
+                    Cuidado & Servicios
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-0.5">Reservas directas con especialistas.</p>
+                </div>
+                <span className="px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-3xs font-extrabold">
+                  {services.length} servicios
+                </span>
+              </div>
 
-                        <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
+              {services.length === 0 ? (
+                <div className="py-12 text-center text-gray-400 font-sans text-xs flex flex-col items-center justify-center">
+                  <p>No se ofrecen servicios de cuidado hoy en este local.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {services.map((item) => {
+                    const duration = item.serviceDetails?.durationMinutes || 45;
+                    const specialist = item.serviceDetails?.specialistName || 'Especialista';
+                    return (
+                      <div key={item.id} className="p-4 rounded-xl border border-gray-150 text-left hover:shadow-xs transition-all space-y-3 bg-white">
+                        <div className="flex gap-3">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 shrink-0">
+                            <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                          </div>
                           <div>
-                            <span className="text-3xs text-gray-400 font-sans block">Precio</span>
-                            <span className="font-serif font-black text-gray-900" style={{ color: activePrimary }}>
-                              ${item.price.toFixed(2)}
+                            <h4 className="font-serif font-black text-2xs text-gray-850 leading-tight">
+                              {item.title}
+                            </h4>
+                            <p className="text-4xs text-gray-400 mt-1 font-sans line-clamp-1">{specialist}</p>
+                            <span className="inline-block mt-1 px-1.5 py-0.5 bg-gray-150 rounded text-4xs font-sans font-bold text-gray-500">
+                              ⏳ {duration} min
                             </span>
                           </div>
+                        </div>
+
+                        <div className="border-t border-gray-50 pt-2 flex items-center justify-between">
+                          <span className="font-serif font-black text-gray-850 text-xs text-brand-blue">
+                            ${item.price.toFixed(2)}
+                          </span>
                           
                           <button 
-                            disabled={stock <= 0}
                             onClick={() => {
-                              addToCart(item, 1);
-                              alert('Se ha agregado al carro de compras B2C');
+                              navigate(isDemoMode ? `/demo/item/${item.id}` : `/item/${item.id}`);
                             }}
-                            className="bg-[#102948] text-white hover:bg-opacity-95 font-sans font-bold text-3xs uppercase py-2 px-3.5 rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                            style={{ backgroundColor: activePrimary }}
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-transparent font-bold text-3xs rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 shrink-0"
                           >
-                            {stock > 0 ? 'Agregar Carro' : 'Agotado'}
+                            Reservar Agenda <ExternalLink className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Services Column (1/3 size) */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-              <div className="text-left">
-                <h3 className="text-lg font-serif font-black flex items-center gap-2 text-gray-800">
-                  <Calendar className="w-5 h-5" style={{ color: activePrimary }} />
-                  Cuidado & Servicios
-                </h3>
-                <p className="text-3xs text-gray-400 mt-0.5">Reservas directas con especialistas.</p>
-              </div>
-              <span className="px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-3xs font-extrabold">
-                {services.length} servicios
-              </span>
+        </div>
+      ) : (
+        /* Blog section viewer */
+        <div className="max-w-7xl mx-auto px-4 mt-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Main Blog posts List (Left/Mid 2 cols) */}
+            <div className="lg:col-span-2 space-y-8">
+              
+              {blogsLoading ? (
+                <div className="bg-white rounded-3xl p-16 text-center border border-gray-150 font-sans text-xs font-bold text-gray-500">
+                  Cargando biblioteca de artículos...
+                </div>
+              ) : blogPosts.filter(p => p.status === 'PUBLISHED').length === 0 ? (
+                <div className="bg-white rounded-3xl p-16 text-center border border-gray-150 space-y-3 text-left">
+                  <Building2 className="w-12 h-12 text-gray-300 mx-auto" />
+                  <h4 className="font-serif font-black text-[#102948] text-base text-center">¡Pronto más Novedades en Nuestra Bitácora!</h4>
+                  <p className="text-3xs text-gray-450 max-w-sm mx-auto text-center font-sans font-medium">Esta tienda está configurando sus guías y consejos oficiales de cuidado veterinario. Sintoniza más tarde para ver las publicaciones en vivo.</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  <div className="bg-gradient-to-r from-teal-50 to-amber-50/50 border border-gray-150 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-left">
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-gray-850 tracking-wider">Bitácora de Novedades de {store.name}</h4>
+                      <p className="text-3xs text-gray-500 font-medium mt-0.5">Revisa el catálogo completo de consejos, estadísticas, likes, comentarios y responde en hilos de conversación.</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigate(isDemoMode ? `/demo/store/${store.id}/blogs` : `/store/${store.id}/blogs`);
+                      }}
+                      className="text-3xs uppercase tracking-wider font-extrabold px-3 py-2 rounded-xl text-white font-sans hover:opacity-90 transition-all cursor-pointer shadow-xs whitespace-nowrap self-start sm:self-auto"
+                      style={{ backgroundColor: activePrimary }}
+                    >
+                      Ver más &rarr;
+                    </button>
+                  </div>
+
+                  {blogPosts
+                    .filter(p => p.status === 'PUBLISHED')
+                    .map((post) => (
+                      <article key={post.id} className="bg-white rounded-3xl border border-gray-150 overflow-hidden shadow-3xs hover:shadow-2xs transition-all text-left flex flex-col md:flex-row">
+                        
+                        {/* Article photo */}
+                        <div className="md:w-2/5 aspect-video md:aspect-auto bg-gray-105 shrink-0 relative overflow-hidden">
+                          <img 
+                            src={post.bannerUrl || 'https://images.unsplash.com/photo-1541599540903-216a46ca1bf0?w=600&q=80'} 
+                            className="w-full h-full object-cover"
+                            alt={post.title}
+                          />
+                        </div>
+
+                        {/* Article details */}
+                        <div className="p-6 md:p-8 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              <span className="text-[10px] text-indigo-700 font-extrabold uppercase font-sans tracking-wide">
+                                📅 {new Date(post.createdAt).toLocaleDateString('es-CL')}
+                              </span>
+                              <span className="w-1 h-1 rounded-full bg-gray-300" />
+                              <span className="text-[10px] text-gray-500 font-bold font-sans">
+                                Autor: {post.authorName}
+                              </span>
+                            </div>
+
+                            <h3 className="font-serif font-black text-[#102948] text-base leading-snug">
+                              {post.title}
+                            </h3>
+
+                            <p className="text-xs text-gray-500 leading-relaxed font-sans line-clamp-3">
+                              {post.excerpt}
+                            </p>
+                          </div>
+
+                          <div className="pt-4 border-t border-gray-100 flex flex-wrap gap-2 items-center justify-between">
+                            <div className="flex flex-wrap gap-1">
+                              {post.tags && post.tags.map((tag: string) => (
+                                <span key={tag} className="px-2 py-0.5 bg-slate-50 border border-gray-200 text-gray-600 rounded-md text-[9px] font-black uppercase tracking-wider">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                const targetUrl = isDemoMode
+                                  ? `/demo/store/${store.id}/blogs/${post.id}`
+                                  : `/store/${store.id}/blogs/${post.id}`;
+                                navigate(targetUrl);
+                              }}
+                              className="text-2xs font-serif font-black uppercase tracking-wider cursor-pointer underline hover:text-[#cfa86b]"
+                              style={{ color: activePrimary }}
+                            >
+                              Leer Completo &rarr;
+                            </button>
+                          </div>
+                        </div>
+
+                      </article>
+                    ))
+                  }
+                </div>
+              )}
+
             </div>
 
-            {services.length === 0 ? (
-              <div className="py-12 text-center text-gray-400 font-sans text-xs flex flex-col items-center justify-center">
-                <p>No se ofrecen servicios de cuidado hoy en este local.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {services.map((item) => {
-                  const duration = item.serviceDetails?.durationMinutes || 45;
-                  const specialist = item.serviceDetails?.specialistName || 'Especialista';
-                  return (
-                    <div key={item.id} className="p-4 rounded-xl border border-gray-150 text-left hover:shadow-xs transition-all space-y-3 bg-white">
-                      <div className="flex gap-3">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 shrink-0">
-                          <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <h4 className="font-serif font-black text-2xs text-gray-850 leading-tight">
-                            {item.title}
-                          </h4>
-                          <p className="text-4xs text-gray-400 mt-1 font-sans line-clamp-1">{specialist}</p>
-                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-gray-150 rounded text-4xs font-sans font-bold text-gray-500">
-                            ⏳ {duration} min
-                          </span>
-                        </div>
-                      </div>
+            {/* Sidebar Right Column - Bio / About our veterinary blog */}
+            <div className="space-y-6 text-left">
+              <div className="bg-white rounded-3xl p-6 shadow-md border border-gray-100 space-y-4">
+                <h4 className="font-serif font-black text-2xs text-gray-800 uppercase tracking-widest">
+                  Canal de Novedades
+                </h4>
+                <div className="w-12 h-1 bg-[#DABD83] rounded-full" style={{ backgroundColor: activeAccent }} />
+                <p className="text-3xs text-gray-500 leading-normal font-sans">
+                  Bienvenido a la bitácora corporativa de <b>{store.name}</b>. Creemos en la educación del tutor para entregar una mejor calidad de vida a nuestros amigos fieles.
+                </p>
 
-                      <div className="border-t border-gray-50 pt-2 flex items-center justify-between">
-                        <span className="font-serif font-black text-gray-850 text-xs text-brand-blue">
-                          ${item.price.toFixed(2)}
-                        </span>
-                        
-                        <button 
-                          onClick={() => {
-                            navigate(isDemoMode ? `/demo/item/${item.id}` : `/item/${item.id}`);
-                          }}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-transparent font-bold text-3xs rounded-lg transition-all cursor-pointer inline-flex items-center gap-1 shrink-0"
-                        >
-                          Reservar Agenda <ExternalLink className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 space-y-1.5">
+                  <span className="text-[10px] font-black text-amber-700 block uppercase tracking-wider">🔒 Certificación Profesional</span>
+                  <span className="text-[10px] text-gray-500 block leading-normal">Todos los artículos son redactados por personal corporativo calificado o médicos veterinarios afiliados.</span>
+                </div>
               </div>
-            )}
+
+              {/* Share box preview */}
+              <div className="bg-[#102948] text-[#DABD83] rounded-3xl p-6 border border-[#102948]/10 space-y-4 relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+                <h4 className="font-serif font-black text-2xs uppercase tracking-widest text-white">
+                  Comparte Conocimiento
+                </h4>
+                <p className="text-[10px] text-slate-300 leading-relaxed font-sans">
+                  ¿Te encantan nuestras guías de cuidado animal orgánico? Copia el enlace oficial para divulgarlo con amigos y familiares.
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(window.location.href);
+                      alert('¡Dirección URL de la bitácora copiada con éxito!');
+                    }}
+                    className="w-full bg-[#DABD83] hover:bg-[#cdaf7a] text-[#102948] font-sans font-black text-[10px] uppercase py-2.5 rounded-2xl tracking-wider cursor-pointer shadow-xs select-none"
+                    style={{ backgroundColor: activeAccent }}
+                  >
+                    📋 Copiar Enlace
+                  </button>
+                  <div className="grid grid-cols-4 gap-1 text-center text-[9px] font-extrabold uppercase mt-1">
+                    <a
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent('Revisa la bitácora de novedades de ' + store.name + ': ' + window.location.href)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      WA
+                    </a>
+                    <a
+                      href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      FB
+                    </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Mira el blog de ' + store.name + '!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1 bg-[#1DA1F2] hover:bg-[#1a91da] text-white rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      X
+                    </a>
+                    <a
+                      href={`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Mira el blog de ' + store.name + '!')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1 bg-[#0088cc] hover:bg-[#0077b3] text-white rounded-md flex items-center justify-center cursor-pointer"
+                    >
+                      TG
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
-
-      </div>
+      )}
 
     </div>
   );

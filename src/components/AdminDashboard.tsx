@@ -30,8 +30,305 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   
   // Tab Routing
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'inventory' | 'logistics' | 'pos' | 'library' | 'users' | 'super'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'catalog' | 'inventory' | 'logistics' | 'pos' | 'library' | 'users' | 'super' | 'marketing' | 'blog'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- Marketing campaign & growth states ---
+  const [activeCommune, setActiveCommune] = useState<'Santiago' | 'Valparaíso' | 'Viña del Mar' | 'Concepción'>('Santiago');
+  const [campaignBudget, setCampaignBudget] = useState(60000); // CLP monthly
+  const [campaignGoal, setCampaignGoal] = useState<'both' | 'sales' | 'brand'>('both');
+  const [allianceFoundations, setAllianceFoundations] = useState(true);
+  const [newBlogTitle, setNewBlogTitle] = useState('');
+  const [newBlogCategory, setNewBlogCategory] = useState('Salud Animal');
+  const [newBlogBody, setNewBlogBody] = useState('');
+  const [copiedDraftId, setCopiedDraftId] = useState<string | null>(null);
+  const [customDrafts, setCustomDrafts] = useState<Array<{id: string, title: string, category: string, date: string, body?: string}>>([
+    { id: '1', title: 'Ley Cholito en Chile: Normativas, multas y tenencia responsable que todo dueño de mascota debe conocer', category: 'Leyes & Derechos', date: '2026-06-12', body: 'La Ley 21.020, conocida como Ley Cholito, establece obligaciones de registro, cuidado, esterilización y sanciones severas por maltrato animal. Al publicar este contenido en tu tienda sumas un 18% más de indexación automática en Google para búsquedas locales.' },
+    { id: '2', title: 'Guía de plantas decorativas sumamente comunes en Chile que resultan tóxicas para perros y gatos', category: 'Salud Animal', date: '2026-06-15', body: 'Plantas ornamentales como los lirios, el helecho de interior, la azalea o las hortensias provocan fallas orgánicas graves en mascotas. Ofrece alternativas seguras y posiciona tu marca como experta en medicina preventiva local.' },
+    { id: '3', title: '¿Viajar en transporte público con tu perro o gato? Leyes de Metro, trenes y buses interurbanos', category: 'Comunidad & Viajes', date: '2026-06-19', body: 'Aprende los protocolos oficiales de caniles rígidos y arneses para viajar sin multas en el transporte de la Región Metropolitana y Valparaíso. Genera comunidad e impulsa recomendaciones orgánicas.' }
+  ]);
+
+  // --- Platform Settings & Announcements states for Super Admin & Merchants ---
+  const [platformSettings, setPlatformSettings] = useState<any>({
+    commissionRate: 5,
+    basicPlanPrice: 19990,
+    proPlanPrice: 39990,
+    enterprisePlanPrice: 79990,
+    activePilotCommunes: ['Santiago', 'Valparaíso', 'Viña del Mar', 'Concepción'],
+    marketingCoFundingRate: 20,
+    allowNewRegistrations: true
+  });
+  const [platformAnnouncements, setPlatformAnnouncements] = useState<any[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingAnn, setSavingAnn] = useState(false);
+
+  // New announcement form fields
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnContent, setNewAnnContent] = useState('');
+  const [newAnnType, setNewAnnType] = useState<'GENERAL' | 'MARKETING_PLAN' | 'BUSINESS_GUIDELINES'>('GENERAL');
+  const [newAnnImportant, setNewAnnImportant] = useState(false);
+
+  // Editable platform settings states
+  const [editCommissionRate, setEditCommissionRate] = useState('5');
+  const [editBasicPrice, setEditBasicPrice] = useState('19990');
+  const [editProPrice, setEditProPrice] = useState('39990');
+  const [editEnterprisePrice, setEditEnterprisePrice] = useState('79990');
+  const [editMarketingCoFunding, setEditMarketingCoFunding] = useState('20');
+  const [editCommunes, setEditCommunes] = useState<string[]>([]);
+  const [newCommuneField, setNewCommuneField] = useState('');
+  const [editNewRegistrations, setEditNewRegistrations] = useState(true);
+  const [editSearchMultiplier, setEditSearchMultiplier] = useState('1.2');
+
+  // Adoption showcase states
+  const [adoptionPets, setAdoptionPets] = useState<any[]>([]);
+  const [newPetName, setNewPetName] = useState('');
+  const [newPetType, setNewPetType] = useState('Perro');
+  const [newPetBreed, setNewPetBreed] = useState('');
+  const [newPetAge, setNewPetAge] = useState('');
+  const [newPetHealth, setNewPetHealth] = useState('');
+  const [newPetFoundation, setNewPetFoundation] = useState('');
+  const [newPetDesc, setNewPetDesc] = useState('');
+  const [newPetImg, setNewPetImg] = useState('');
+  const [savingPet, setSavingPet] = useState(false);
+
+  // Promotional materials states
+  const [promotionalMaterials, setPromotionalMaterials] = useState<any[]>([]);
+  const [newMatTitle, setNewMatTitle] = useState('');
+  const [newMatDesc, setNewMatDesc] = useState('');
+  const [newMatFormat, setNewMatFormat] = useState('PDF');
+  const [newMatIconName, setNewMatIconName] = useState('FileText');
+  const [newMatDownloadUrl, setNewMatDownloadUrl] = useState('');
+  const [savingMaterial, setSavingMaterial] = useState(false);
+
+  const fetchPlatformData = async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const resSet = await fetch('/api/platform/settings');
+      if (resSet.ok) {
+        const settingsData = await resSet.json();
+        setPlatformSettings(settingsData);
+        // Initialize editable states
+        setEditCommissionRate(String(settingsData.commissionRate));
+        setEditBasicPrice(String(settingsData.basicPlanPrice));
+        setEditProPrice(String(settingsData.proPlanPrice));
+        setEditEnterprisePrice(String(settingsData.enterprisePlanPrice));
+        setEditMarketingCoFunding(String(settingsData.marketingCoFundingRate));
+        setEditCommunes(settingsData.activePilotCommunes || []);
+        setEditNewRegistrations(settingsData.allowNewRegistrations);
+        setEditSearchMultiplier(String(settingsData.searchMultiplier || 1.2));
+      }
+      
+      const resAnn = await fetch('/api/platform/announcements');
+      if (resAnn.ok) {
+        setPlatformAnnouncements(await resAnn.json());
+      }
+
+      // Fetch Adoption Pets
+      const resAdopt = await fetch('/api/platform/adoption');
+      if (resAdopt.ok) {
+        setAdoptionPets(await resAdopt.json());
+      }
+
+      // Fetch Promotional Materials
+      const resPromo = await fetch('/api/platform/promotional');
+      if (resPromo.ok) {
+        setPromotionalMaterials(await resPromo.json());
+      }
+    } catch (e) {
+      console.error('Error fetching platform data:', e);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  const handleSavePlatformSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    try {
+      const res = await fetch('/api/platform/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commissionRate: Number(editCommissionRate),
+          basicPlanPrice: Number(editBasicPrice),
+          proPlanPrice: Number(editProPrice),
+          enterprisePlanPrice: Number(editEnterprisePrice),
+          marketingCoFundingRate: Number(editMarketingCoFunding),
+          activePilotCommunes: editCommunes,
+          allowNewRegistrations: editNewRegistrations,
+          searchMultiplier: Number(editSearchMultiplier)
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlatformSettings(data.settings);
+        alert('¡Configuraciones globales publicadas y sincronizadas exitosamente en toda la red!');
+      } else {
+        alert('Error al guardar configuraciones de plataforma.');
+      }
+    } catch (err: any) {
+      alert('Error de conexión: ' + err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleCreateAdoptionPet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPetName.trim() || !newPetFoundation.trim()) {
+      alert('Nombre de la mascota y fundación patrocinadora son requeridos.');
+      return;
+    }
+    setSavingPet(true);
+    try {
+      const res = await fetch('/api/platform/adoption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPetName.trim(),
+          type: newPetType,
+          breed: newPetBreed.trim(),
+          age: newPetAge.trim(),
+          healthStatus: newPetHealth.trim(),
+          foundation: newPetFoundation.trim(),
+          description: newPetDesc.trim(),
+          imageUrl: newPetImg.trim()
+        })
+      });
+      if (res.ok) {
+        const newPet = await res.json();
+        setAdoptionPets([...adoptionPets, newPet]);
+        setNewPetName('');
+        setNewPetBreed('');
+        setNewPetAge('');
+        setNewPetHealth('');
+        setNewPetFoundation('');
+        setNewPetDesc('');
+        setNewPetImg('');
+        alert('¡Mascota publicada con éxito en la Vitrina de Adopción de la plataforma!');
+      } else {
+        alert('Error al publicar mascota para adopción.');
+      }
+    } catch (err: any) {
+      alert('Error de conexión: ' + err.message);
+    } finally {
+      setSavingPet(false);
+    }
+  };
+
+  const handleDeleteAdoptionPet = async (id: string) => {
+    if (!window.confirm('¿Deseas retirar esta mascota de la Vitrina de Adopción?')) return;
+    try {
+      const res = await fetch(`/api/platform/adoption/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAdoptionPets(adoptionPets.filter(p => p.id !== id));
+        alert('Mascota retirada de la vitrina.');
+      }
+    } catch (err: any) {
+      console.error('Error deleting adoption pet:', err);
+    }
+  };
+
+  const handleCreatePromotionalMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMatTitle.trim() || !newMatDownloadUrl.trim()) {
+      alert('El título del material y el link de descarga directa son requeridos.');
+      return;
+    }
+    setSavingMaterial(true);
+    try {
+      const res = await fetch('/api/platform/promotional', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newMatTitle.trim(),
+          description: newMatDesc.trim(),
+          format: newMatFormat,
+          iconName: newMatIconName,
+          downloadUrl: newMatDownloadUrl.trim()
+        })
+      });
+      if (res.ok) {
+        const newMat = await res.json();
+        setPromotionalMaterials([...promotionalMaterials, newMat]);
+        setNewMatTitle('');
+        setNewMatDesc('');
+        setNewMatFormat('PDF');
+        setNewMatIconName('FileText');
+        setNewMatDownloadUrl('');
+        alert('¡Nuevo material promocional publicado con éxito para todos los comerciantes socios!');
+      } else {
+        alert('Fallo al guardar material.');
+      }
+    } catch (err: any) {
+      alert('Error de conexión: ' + err.message);
+    } finally {
+      setSavingMaterial(false);
+    }
+  };
+
+  const handleDeletePromotionalMaterial = async (id: string) => {
+    if (!window.confirm('¿Deseas retirar este material descargable?')) return;
+    try {
+      const res = await fetch(`/api/platform/promotional/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setPromotionalMaterials(promotionalMaterials.filter(m => m.id !== id));
+        alert('Material removido.');
+      }
+    } catch (err: any) {
+      console.error('Error deleting material:', err);
+    }
+  };
+
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAnnTitle.trim() || !newAnnContent.trim()) {
+      alert('Por favor, indica un título y un contenido.');
+      return;
+    }
+    setSavingAnn(true);
+    try {
+      const res = await fetch('/api/platform/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newAnnTitle.trim(),
+          content: newAnnContent.trim(),
+          type: newAnnType,
+          important: newAnnImportant
+        })
+      });
+      if (res.ok) {
+        const publishedAnn = await res.json();
+        setPlatformAnnouncements([publishedAnn, ...platformAnnouncements]);
+        setNewAnnTitle('');
+        setNewAnnContent('');
+        setNewAnnType('GENERAL');
+        setNewAnnImportant(false);
+        alert('¡Comunicado y cambios de políticas publicados con éxito en los paneles de todos los comerciantes!');
+      } else {
+        alert('Fallo al publicar el comunicado.');
+      }
+    } catch (err: any) {
+      alert('Error de conexión al guardar comunicado: ' + err.message);
+    } finally {
+      setSavingAnn(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este comunicado corporativo de la red?')) return;
+    try {
+      const res = await fetch(`/api/platform/announcements/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setPlatformAnnouncements(platformAnnouncements.filter(a => a.id !== id));
+        alert('Comunicado removido correctamente.');
+      }
+    } catch (err: any) {
+      console.error('Error deleting announcement:', err);
+    }
+  };
 
   // --- SaaS Subscription Payments state and fetching ---
   const [saasPaymentsList, setSaasPaymentsList] = useState<SaaSPayment[]>([]);
@@ -59,6 +356,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchSaasPayments();
+    fetchPlatformData();
   }, [currentUser, activeTab]);
 
   useEffect(() => {
@@ -71,8 +369,155 @@ export default function AdminDashboard() {
     fetchStores();
     fetchCatalog();
     fetchOrders();
+    fetchPlatformData();
     startSseConnection(); // Ensure real-time SSE listener is active
   }, []);
+
+  // --- BLOG & REDES SOCIALES STATES & HANDLERS ---
+  const [blogPostsList, setBlogPostsList] = useState<any[]>([]);
+  const [blogListLoading, setBlogListLoading] = useState(false);
+  const [blogFormOpen, setBlogFormOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+
+  // Form states
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogSlug, setBlogSlug] = useState('');
+  const [blogBannerUrl, setBlogBannerUrl] = useState('');
+  const [blogExcerpt, setBlogExcerpt] = useState('');
+  const [blogContent, setBlogContent] = useState('');
+  const [blogTags, setBlogTags] = useState('');
+  const [blogStatus, setBlogStatus] = useState<'DRAFT' | 'PUBLISHED'>('PUBLISHED');
+
+  // Preview Platform state
+  const [previewPlatform, setPreviewPlatform] = useState<'whatsapp' | 'telegram' | 'X' | 'facebook' | 'threads' | 'instagram' | 'linkedin'>('whatsapp');
+
+  const fetchStoreBlogs = async () => {
+    setBlogListLoading(true);
+    try {
+      const sId = currentUser?.storeId || 'store_1';
+      const res = await fetch(`/api/blogs?storeId=${sId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBlogPostsList(data);
+      }
+    } catch (err) {
+      console.error('Error fetching storefront blogs:', err);
+    } finally {
+      setBlogListLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'blog') {
+      fetchStoreBlogs();
+    }
+  }, [activeTab, currentUser]);
+
+  const toggleUserBlogPermission = async (email: string, currentVal: boolean) => {
+    const sId = currentUser?.storeId || 'store_1';
+    try {
+      const res = await fetch(`/api/stores/${sId}/users/${email}/blog-permission`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ allowBlog: !currentVal })
+      });
+      if (res.ok) {
+        loadStoreUsers();
+      } else {
+        alert('No se pudo actualizar el permiso de blog del colaborador.');
+      }
+    } catch (err) {
+      console.error('Error toggling blog permission:', err);
+    }
+  };
+
+  const handleSaveBlogPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blogTitle.trim() || !blogContent.trim()) {
+      alert('Por favor completa el título y el contenido del artículo de blog.');
+      return;
+    }
+
+    const sId = currentUser?.storeId || 'store_1';
+    const authorEmail = currentUser?.email || 'comerciante1@petmall.com';
+    const authorName = currentUser?.firstName && currentUser?.lastName 
+      ? `${currentUser.firstName} ${currentUser.lastName}` 
+      : 'Administrador Empresa';
+
+    const payload = {
+      id: editingPost?.id || undefined,
+      storeId: sId,
+      title: blogTitle,
+      slug: blogSlug || blogTitle.toLowerCase().trim().replace(/[\s\W]+/g, '-'),
+      excerpt: blogExcerpt || (blogContent.substring(0, 150) + '...'),
+      content: blogContent,
+      bannerUrl: blogBannerUrl || 'https://images.unsplash.com/photo-1541599540903-216a46ca1bf0?w=800&q=80',
+      authorEmail,
+      authorName,
+      status: blogStatus,
+      tags: blogTags.split(',').map(t => t.trim()).filter(Boolean),
+      createdAt: editingPost?.createdAt || undefined
+    };
+
+    try {
+      const res = await fetch('/api/blogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        // Clear form
+        setBlogTitle('');
+        setBlogSlug('');
+        setBlogBannerUrl('');
+        setBlogExcerpt('');
+        setBlogContent('');
+        setBlogTags('');
+        setBlogStatus('PUBLISHED');
+        setEditingPost(null);
+        setBlogFormOpen(false);
+        // Refresh articles
+        fetchStoreBlogs();
+        alert('Artículo de blog sincronizado correctamente.');
+      } else {
+        const err = await res.json();
+        alert('Error al guardar: ' + (err.error || 'Intenta de nuevo'));
+      }
+    } catch (err) {
+      console.error('Save blog error:', err);
+    }
+  };
+
+  const handleEditBlogPostClick = (post: any) => {
+    setEditingPost(post);
+    setBlogTitle(post.title);
+    setBlogSlug(post.slug);
+    setBlogBannerUrl(post.bannerUrl || '');
+    setBlogExcerpt(post.excerpt || '');
+    setBlogContent(post.content);
+    setBlogTags(post.tags ? post.tags.join(', ') : '');
+    setBlogStatus(post.status);
+    setBlogFormOpen(true);
+  };
+
+  const handleDeleteBlogPost = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este artículo permanentemente?')) return;
+    try {
+      const res = await fetch(`/api/blogs/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchStoreBlogs();
+      } else {
+        alert('No se pudo eliminar el artículo.');
+      }
+    } catch (err) {
+      console.error('Delete blog error:', err);
+    }
+  };
 
   // --- TAB 7: USER MANAGEMENT SYSTEM STATES ---
   const [storeUsers, setStoreUsers] = useState<{ email: string; role: string; storeId?: string; firstName?: string; lastName?: string; avatarUrl?: string }[]>([]);
@@ -410,7 +855,7 @@ export default function AdminDashboard() {
           {currentUser && (
             <div className="mx-4 my-4 p-3 bg-white/5 rounded-2xl border border-white/10 flex items-center space-x-3 text-left">
               <img 
-                src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120'} 
+                src={currentUser.avatarUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Cpath d='M50 56a16 16 0 100-32 16 16 0 000 32zm0 4c-18.5 0-32 10.5-32 20v4h64v-4c0-9.5-13.5-20-32-20z' fill='%23475569'/%3E%3C/svg%3E"} 
                 alt={`${currentUser.firstName} ${currentUser.lastName}`}
                 className="w-10 h-10 rounded-full bg-gray-200 border-2 border-[#DABD83] object-cover shrink-0"
                 referrerPolicy="no-referrer"
@@ -502,6 +947,34 @@ export default function AdminDashboard() {
               Gestión de Usuarios
             </button>
 
+            <button
+              onClick={() => setActiveTab('blog')}
+              className={`flex items-center w-full px-4 py-3 rounded-xl text-xs font-semibold hover:bg-white/5 transition-all focus:outline-hidden cursor-pointer ${
+                activeTab === 'blog' ? 'bg-[#DABD83] text-[#102948] shadow-xs' : 'text-gray-300'
+              }`}
+            >
+              <span className="relative mr-3 flex items-center justify-center">
+                <span className="w-4 h-4 rounded-md border border-white/50 text-[10px] flex items-center justify-center font-serif leading-none font-black text-brand-gold bg-white/10 shrink-0">B</span>
+              </span>
+              Blog & Redes Sociales
+              <span className="ml-auto bg-amber-500/10 text-brand-gold text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider scale-90 border border-amber-500/20">
+                Social
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('marketing')}
+              className={`flex items-center w-full px-4 py-3 rounded-xl text-xs font-semibold hover:bg-white/5 transition-all focus:outline-hidden cursor-pointer ${
+                activeTab === 'marketing' ? 'bg-[#DABD83] text-[#102948] shadow-xs' : 'text-gray-300'
+              }`}
+            >
+              <Tag className="w-4 h-4 mr-3 text-brand-gold" />
+              Plan de Marketing & Crecimiento
+              <span className="ml-auto bg-emerald-500/10 text-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider animate-pulse border border-emerald-500/20">
+                Plan 2026
+              </span>
+            </button>
+
             {currentUser?.role === 'SUPER_USER' && (
               <button
                 onClick={() => setActiveTab('super')}
@@ -586,7 +1059,7 @@ export default function AdminDashboard() {
                 {currentUser && (
                   <div className="mx-4 my-4 p-3 bg-white/5 rounded-2xl border border-white/10 flex items-center space-x-3 text-left">
                     <img 
-                      src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120'} 
+                      src={currentUser.avatarUrl || "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Cpath d='M50 56a16 16 0 100-32 16 16 0 000 32zm0 4c-18.5 0-32 10.5-32 20v4h64v-4c0-9.5-13.5-20-32-20z' fill='%23475569'/%3E%3C/svg%3E"} 
                       alt={`${currentUser.firstName} ${currentUser.lastName}`}
                       className="w-10 h-10 rounded-full bg-gray-200 border-2 border-[#DABD83] object-cover shrink-0"
                       referrerPolicy="no-referrer"
@@ -694,6 +1167,34 @@ export default function AdminDashboard() {
                     Gestión de Usuarios
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setActiveTab('blog');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center w-full px-4 py-3 rounded-xl text-xs font-semibold hover:bg-white/5 transition-all focus:outline-hidden cursor-pointer ${
+                      activeTab === 'blog' ? 'bg-[#DABD83] text-[#102948] shadow-xs' : 'text-gray-300'
+                    }`}
+                  >
+                    <span className="relative mr-3 flex items-center justify-center">
+                      <span className="w-4 h-4 rounded-md border border-white/50 text-[10px] flex items-center justify-center font-serif leading-none font-black text-brand-gold bg-white/10 shrink-0">B</span>
+                    </span>
+                    Blog & Redes Sociales
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('marketing');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center w-full px-4 py-3 rounded-xl text-xs font-semibold hover:bg-white/5 transition-all focus:outline-hidden cursor-pointer ${
+                      activeTab === 'marketing' ? 'bg-[#DABD83] text-[#102948] shadow-xs' : 'text-gray-300'
+                    }`}
+                  >
+                    <Tag className="w-4 h-4 mr-3 text-brand-gold" />
+                    Plan de Marketing & Crecimiento
+                  </button>
+
                   {currentUser?.role === 'SUPER_USER' && (
                     <button
                       onClick={() => {
@@ -773,7 +1274,9 @@ export default function AdminDashboard() {
                 {activeTab === 'pos' && 'Punto de Venta de Caja Físico — Caja 1'}
                 {activeTab === 'library' && 'Biblioteca de Imágenes Omnicanal'}
                 {activeTab === 'users' && 'Gestión de Personal & Administradores'}
+                {activeTab === 'blog' && 'Blog Corporativo & Marketing de Contenidos'}
                 {activeTab === 'super' && 'Panel Súper Administrador Petmall'}
+                {activeTab === 'marketing' && 'Estrategia de Crecimiento & Marketing Hub'}
               </h1>
               <p className="text-xs text-gray-500 mt-1">
                 {activeTab === 'dashboard' && 'Visión general de ingresos, POS local vs Checkout digital.'}
@@ -783,7 +1286,9 @@ export default function AdminDashboard() {
                 {activeTab === 'pos' && 'Vende en mostrador con reducción inmediata de existencias.'}
                 {activeTab === 'library' && 'Sube y organiza hasta 100 imágenes en carpetas personalizadas para la carga directa de tus productos.'}
                 {activeTab === 'users' && 'Vincula y administra los correos autorizados para operar el CMS, condicionado por los límites de tu plan.'}
+                {activeTab === 'blog' && 'Redacta artículos y compártelos al instante con previsualizaciones automáticas adaptadas para WhatsApp, X, Facebook, LinkedIn y más.'}
                 {activeTab === 'super' && 'Administra y audita comercios enrolados y procesa cierres o bajas con eliminación en cascada.'}
+                {activeTab === 'marketing' && 'Plan estratégico B2C/B2B, simulador de pauta en comunas piloto y generador de contenidos.'}
               </p>
             </div>
           </div>
@@ -803,8 +1308,8 @@ export default function AdminDashboard() {
               const activePlanName = myStore?.planName || 'Plan Control & Omnicanal 🚀';
               
               let planDetails = {
-                price: '59.990 CLP / mes',
-                commission: '4.5% + IVA',
+                price: `${(platformSettings?.proPlanPrice || 39990).toLocaleString('es-CL')} CLP / mes`,
+                commission: `${platformSettings?.commissionRate || 5}% + IVA`,
                 maxUsers: '6 usuarios',
                 pos: 'POS Táctil en tiempo real unificado por WebSockets',
                 support: 'Soporte prioritario rápido',
@@ -813,8 +1318,8 @@ export default function AdminDashboard() {
 
               if (activePlanType === 'market_growth') {
                 planDetails = {
-                  price: '24.990 CLP / mes',
-                  commission: '7.0% + IVA',
+                  price: `${(platformSettings?.basicPlanPrice || 19990).toLocaleString('es-CL')} CLP / mes`,
+                  commission: `${(platformSettings?.commissionRate || 5) + 2}% + IVA`,
                   maxUsers: '2 usuarios',
                   pos: 'Modo básico/simulado (sin mermas ni turnos)',
                   support: 'Gestión básica por correo electrónico',
@@ -822,8 +1327,8 @@ export default function AdminDashboard() {
                 };
               } else if (activePlanType === 'enterprise_elite') {
                 planDetails = {
-                  price: '149.900 CLP / mes',
-                  commission: '2.5% + IVA',
+                  price: `${(platformSettings?.enterprisePlanPrice || 79990).toLocaleString('es-CL')} CLP / mes`,
+                  commission: `${Math.max(1, (platformSettings?.commissionRate || 5) - 2.5)}% + IVA`,
                   maxUsers: 'Ilimitado',
                   pos: 'Avanzado con arqueos de caja registradoras y turnos',
                   support: 'Soporte dedicado las 24 horas del día (24/7)',
@@ -893,6 +1398,44 @@ export default function AdminDashboard() {
                 </div>
               );
             })()}
+
+            {/* Announcements published by Super Admin */}
+            {platformAnnouncements && platformAnnouncements.length > 0 && (
+              <div className="bg-amber-50/75 border border-amber-200 rounded-2xl p-5 shadow-3xs space-y-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-400/20 text-amber-700 font-extrabold text-sm select-none">📢</span>
+                  <div>
+                    <h4 className="text-2xs uppercase tracking-wider font-extrabold text-amber-900 leading-none">Comunicados Oficiales de la Administración Central</h4>
+                    <p className="text-4xs text-amber-700 leading-normal mt-0.5 font-semibold">Actualizaciones críticas del modelo de marketing, negocios y pauta de anunciantes</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {platformAnnouncements.slice(0, 4).map((ann: any) => (
+                    <div key={ann.id} className="bg-white/90 p-4 rounded-xl border border-amber-100 flex flex-col justify-between relative overflow-hidden shadow-3xs hover:shadow-xs transition-shadow">
+                      {ann.important && (
+                        <span className="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-bl tracking-widest border-l border-b border-red-400">
+                          URGENTE
+                        </span>
+                      )}
+                      <div>
+                        <span className="inline-block text-[8px] font-black text-amber-800 bg-amber-500/5 px-2 py-0.5 rounded border border-amber-400/20 uppercase tracking-widest font-mono">
+                          {ann.type === 'MARKETING_PLAN' && '📈 Plan de Marketing'}
+                          {ann.type === 'BUSINESS_GUIDELINES' && '💼 Modelo de Negocio'}
+                          {ann.type === 'GENERAL' && '🔔 General'}
+                        </span>
+                        <h5 className="font-serif font-black text-xs text-slate-900 mt-2">{ann.title}</h5>
+                        <p className="text-3xs text-slate-600 leading-relaxed mt-1 font-medium">{ann.content}</p>
+                      </div>
+                      <div className="flex items-center justify-between text-4xs text-slate-400 font-bold mt-4 pt-2 border-t border-gray-100">
+                        <span>Petmall Gobierno Central</span>
+                        <span className="font-mono">{ann.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* SaaS Platform Bills Table — transparent compliance with system-agreed dates */}
             <div className="bg-white rounded-2xl p-6 border border-gray-150 shadow-3xs space-y-4">
@@ -2649,6 +3192,7 @@ export default function AdminDashboard() {
                         <th className="px-4 py-3.5 rounded-l-xl">Usuario</th>
                         <th className="px-4 py-3.5">Email de Colaborador</th>
                         <th className="px-4 py-3.5">Rol Designado</th>
+                        <th className="px-4 py-3.5">Permisos de Blog</th>
                         <th className="px-4 py-3.5">Estado de Cuenta</th>
                         <th className="px-4 py-3.5 rounded-r-xl text-right">Controles</th>
                       </tr>
@@ -2656,15 +3200,19 @@ export default function AdminDashboard() {
                     <tbody className="divide-y divide-gray-100 font-medium">
                       {storeUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-gray-400 font-bold">
+                          <td colSpan={6} className="px-4 py-8 text-center text-gray-400 font-bold">
                             Cargando lista de usuarios administradores autorizados...
                           </td>
                         </tr>
                       ) : (
                         storeUsers.map((usr) => {
                           const isSelf = usr.email.toLowerCase() === currentUser?.email?.toLowerCase();
-                          const fallbackAvatar = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120';
+                          const fallbackAvatar = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Cpath d='M50 56a16 16 0 100-32 16 16 0 000 32zm0 4c-18.5 0-32 10.5-32 20v4h64v-4c0-9.5-13.5-20-32-20z' fill='%23475569'/%3E%3C/svg%3E";
                           const displayName = usr.firstName && usr.lastName ? `${usr.firstName} ${usr.lastName}` : 'Colaborador Petmall';
+                          
+                          // Check if active store dynamic plan supports social blog features
+                          const isSocialBlogPlan = myStore?.planType === 'control_omnicanal' || myStore?.planType === 'enterprise_elite';
+
                           return (
                             <tr key={usr.email} className={`hover:bg-gray-50/50 transition-colors ${isSelf ? 'bg-yellow-50/30' : ''}`}>
                               <td className="px-4 py-4">
@@ -2694,6 +3242,28 @@ export default function AdminDashboard() {
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-4xs font-extrabold ${usr.role === 'STORE_OWNER' ? 'bg-indigo-50 text-indigo-800 border border-indigo-200' : 'bg-gray-105 text-gray-700 border border-gray-250'}`}>
                                   {usr.role}
                                 </span>
+                              </td>
+                              <td className="px-4 py-4">
+                                {usr.role === 'STORE_OWNER' || usr.role === 'SUPER_USER' ? (
+                                  <span className="text-[10px] text-[#819B5A] font-black uppercase tracking-wider flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    Autorizado (Owner)
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <input 
+                                      type="checkbox"
+                                      id={`blog-chk-${usr.email}`}
+                                      disabled={!isSocialBlogPlan}
+                                      checked={!!usr.allowBlog}
+                                      onChange={() => toggleUserBlogPermission(usr.email, !!usr.allowBlog)}
+                                      className="w-4 h-4 text-[#102948] rounded border-gray-300 focus:ring-[#DABD83] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <span className={`text-[10px] font-extrabold uppercase ${usr.allowBlog && isSocialBlogPlan ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                      {!isSocialBlogPlan ? 'Bloqueado por Plan' : (usr.allowBlog ? 'Autorizado' : 'Inactivo')}
+                                    </span>
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-4">
                                 <span className="flex items-center gap-1.5 text-[#819B5A] text-2xs font-extrabold">
@@ -3023,6 +3593,1629 @@ export default function AdminDashboard() {
               )}
             </div>
 
+            {/* SUPER ADMIN WORKSPACE: PLATFORM BUSINESS SETTINGS AND INSTANT ANNOUNCEMENTS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in text-left">
+              
+              {/* Card 1: Platform-wide Business & Pricing Model Settings */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-150 space-y-6">
+                <div>
+                  <span className="text-3xs uppercase text-[#cdaf7a] font-extrabold tracking-widest block mb-1 font-mono">MODELO DE DESARROLLO Y PRECIOS</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-[#102948]" /> Ajustes de Negocio y Modelo de Pricing
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">Configura las comisiones globales y los precios mensuales recurrentes por suscripción para la red Petmall Chile.</p>
+                </div>
+
+                <form onSubmit={handleSavePlatformSettings} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* commission rate */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Tasa de Comisión SaaS (%)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={editCommissionRate}
+                          onChange={(e) => setEditCommissionRate(e.target.value)}
+                          className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                          required
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">%</span>
+                      </div>
+                    </div>
+
+                    {/* marketing co-funding */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase mb-1">Co-financiamiento Pauta (%)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={editMarketingCoFunding}
+                          onChange={(e) => setEditMarketingCoFunding(e.target.value)}
+                          className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                          required
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-gray-400 font-bold">%</span>
+                      </div>
+                    </div>
+
+                    {/* Basic Plan Price */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-450 uppercase mb-1">Plan Basic (CLP / mes)</label>
+                      <input
+                        type="number"
+                        value={editBasicPrice}
+                        onChange={(e) => setEditBasicPrice(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                        required
+                      />
+                    </div>
+
+                    {/* Pro Plan Price */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-450 uppercase mb-1">Plan Pro (CLP / mes)</label>
+                      <input
+                        type="number"
+                        value={editProPrice}
+                        onChange={(e) => setEditProPrice(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                        required
+                      />
+                    </div>
+
+                    {/* Enterprise Plan Price */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-gray-450 uppercase mb-1">Plan Enterprise Elite (CLP / mes)</label>
+                      <input
+                        type="number"
+                        value={editEnterprisePrice}
+                        onChange={(e) => setEditEnterprisePrice(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                        required
+                      />
+                    </div>
+
+                    {/* Search Multiplier */}
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-bold text-amber-800 uppercase mb-1">Multiplicador en Buscador (x)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="1.0"
+                          max="5.0"
+                          value={editSearchMultiplier}
+                          onChange={(e) => setEditSearchMultiplier(e.target.value)}
+                          className="w-full pl-3 pr-8 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 focus:outline-hidden focus:border-amber-400"
+                          required
+                        />
+                        <span className="absolute right-3 top-2.5 text-xs text-amber-600 font-bold">x</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active pilot communes tags management */}
+                  <div className="border-t border-gray-100 pt-4 space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase block font-sans">Comunas Piloto Activas para Pauta de Marketing</label>
+                    <div className="flex flex-wrap gap-1.5 p-2.5 bg-gray-50 rounded-xl min-h-[44px] border border-gray-150 items-center">
+                      {editCommunes.length === 0 ? (
+                        <span className="text-4xs text-gray-400 font-bold uppercase px-2 leading-tight">No hay comunas registradas. Añade una comuna local abajo.</span>
+                      ) : (
+                        editCommunes.map((comm) => (
+                          <span 
+                            key={comm} 
+                            className="inline-flex items-center gap-1 bg-[#102948] text-[#DABD83] text-[10px] font-black pl-2 pr-1.5 py-0.5 rounded-lg border border-[#102948]"
+                          >
+                            <span>📍 {comm}</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditCommunes(editCommunes.filter(c => c !== comm))}
+                              className="text-white hover:text-red-400 font-bold text-[9px] shrink-0 cursor-pointer ml-1 p-0.5"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    
+                    {/* Add commune utility field */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nueva comuna. Ej: Antofagasta"
+                        value={newCommuneField}
+                        onChange={(e) => setNewCommuneField(e.target.value)}
+                        className="flex-1 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = newCommuneField.trim();
+                          if (clean && !editCommunes.includes(clean)) {
+                            setEditCommunes([...editCommunes, clean]);
+                            setNewCommuneField('');
+                          }
+                        }}
+                        className="px-3 bg-[#102948] hover:bg-slate-900 text-[#DABD83] font-bold text-3xs uppercase rounded-xl flex items-center justify-center cursor-pointer leading-none"
+                      >
+                        + Agregar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Toggle new merchant registrations */}
+                  <div className="flex justify-between items-center bg-amber-50/50 p-3 rounded-xl border border-amber-100">
+                    <div>
+                      <span className="text-[10px] text-amber-900 font-extrabold uppercase block leading-none">Inscripción General de Nuevas e-Stores</span>
+                      <span className="text-[9px] text-amber-700 block max-w-xs mt-1 leading-normal font-semibold">Si se desactiva, impedirá que nuevas tiendas comiencen su enrolamiento por el portal.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditNewRegistrations(!editNewRegistrations)}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                        editNewRegistrations ? 'bg-green-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform transform ${
+                        editNewRegistrations ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Actions buttons */}
+                  <button
+                    type="submit"
+                    disabled={savingSettings}
+                    className="w-full py-2.5 bg-[#102948] hover:bg-slate-900 text-[#DABD83] font-sans text-3xs font-black uppercase rounded-xl transition-all border border-[#102948] focus:outline-hidden flex items-center justify-center gap-2 cursor-pointer shadow-3xs"
+                  >
+                    <span>{savingSettings ? 'Guardando ajustes...' : '✓ Sincronizar y Forzar Cambios de Negocios'}</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* Card 2: Platform-wide Active Announcements & Notification Editor */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-150 space-y-6">
+                <div>
+                  <span className="text-3xs uppercase text-[#cdaf7a] font-extrabold tracking-widest block mb-1 font-mono">PUBLICACIÓN EN VIVO</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-[#102948]" /> Publicador de Comunicados y Políticas
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">Inserta alertas críticas, manuales de marketing con Ley Cholito o actualizaciones del modelo de negocio en la pantalla merchant.</p>
+                </div>
+
+                <form onSubmit={handleCreateAnnouncement} className="space-y-4">
+                  {/* Title */}
+                  <div className="flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Título del Comunicado Oficial</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: Nuevas Subvenciones de Fiestas Patrias..."
+                      value={newAnnTitle}
+                      onChange={(e) => setNewAnnTitle(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                      required
+                    />
+                  </div>
+
+                  {/* Category Type selection */}
+                  <div className="flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Categoría Temática</label>
+                    <select
+                      value={newAnnType}
+                      onChange={(e) => setNewAnnType(e.target.value as any)}
+                      className="w-full px-2 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-extrabold focus:outline-hidden"
+                    >
+                      <option value="GENERAL">General / Actualización del Portal</option>
+                      <option value="MARKETING_PLAN">Plan de Marketing & Pauta de Anunciantes</option>
+                      <option value="BUSINESS_GUIDELINES">Modelo de Negocio (Leyes, Comisiones y Precios)</option>
+                    </select>
+                  </div>
+
+                  {/* Urgent selector checkbox */}
+                  <div className="flex items-center gap-2 bg-red-50/55 p-3 rounded-xl border border-red-200">
+                    <input
+                      type="checkbox"
+                      id="urgentAnn"
+                      checked={newAnnImportant}
+                      onChange={(e) => setNewAnnImportant(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300 rounded accent-red-600 cursor-pointer"
+                    />
+                    <label htmlFor="urgentAnn" className="text-4xs text-red-900 font-extrabold uppercase select-none cursor-pointer">
+                      💥 MARCAR COMO COMUNICADO CRÍTICO OBLIGATORIO (Banner Súper Destacado)
+                    </label>
+                  </div>
+
+                  {/* Content body */}
+                  <div className="flex flex-col">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Cuerpo del Mensaje</label>
+                    <textarea
+                      placeholder="Redacta los detalles del cambio corporativo. Los comerciantes verán este aviso instantáneamente al recargar su pantalla..."
+                      value={newAnnContent}
+                      onChange={(e) => setNewAnnContent(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-hidden"
+                      required
+                    />
+                  </div>
+
+                  {/* Trigger button */}
+                  <button
+                    type="submit"
+                    disabled={savingAnn}
+                    className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-sans text-3xs font-black uppercase rounded-xl transition-all focus:outline-hidden flex items-center justify-center gap-2 cursor-pointer shadow-3xs"
+                  >
+                    <span>{savingAnn ? 'Publicando comunicado...' : '📣 Publicar Comunicado en Vivo'}</span>
+                  </button>
+                </form>
+
+                {/* List of active published announcements for management */}
+                <div className="pt-4 border-t border-gray-150 space-y-3">
+                  <span className="text-[10px] font-black text-gray-500 uppercase block font-sans">Bitácora de Comunicados Activos ({platformAnnouncements.length})</span>
+                  
+                  {platformAnnouncements.length === 0 ? (
+                    <p className="text-3xs text-gray-400 font-bold uppercase py-4 text-center">No registras comunicados corporativos vigentes.</p>
+                  ) : (
+                    <div className="max-h-[160px] overflow-y-auto divide-y divide-gray-100 pr-1 space-y-2">
+                      {platformAnnouncements.map((ann) => (
+                        <div key={ann.id} className="pt-2 flex items-start justify-between gap-3 text-left">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {ann.important && <span className="bg-red-100 text-red-800 text-[8px] font-black px-1.5 py-0.2 rounded uppercase">Crítico</span>}
+                              <span className="text-[8px] font-mono font-bold text-indigo-700 uppercase bg-slate-100 px-1.5 py-0.2 rounded">
+                                {ann.type}
+                              </span>
+                              <span className="text-4xs text-gray-400 font-bold">{ann.date}</span>
+                            </div>
+                            <h5 className="text-[11px] font-bold text-gray-900 leading-tight">{ann.title}</h5>
+                            <p className="text-3xs text-gray-500 leading-normal line-clamp-2">{ann.content}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAnnouncement(ann.id)}
+                            className="p-1 rounded-lg bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors cursor-pointer"
+                            title="Eliminar comunicado del portal"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 3: Dynamic Adoption Showcase Manager */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-150 space-y-6 lg:col-span-2">
+                <div>
+                  <span className="text-3xs uppercase text-indigo-700 font-extrabold tracking-widest block mb-1 font-mono">RESPONSABILIDAD SOCIAL CORPORATIVA</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" /> Admin. de Vitrina de Adopción
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">
+                    Gestiona la lista oficial de mascotas rescatadas que aparecen publicadas en la vitrina comunitaria de la plataforma Petmall Chile.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Form */}
+                  <form onSubmit={handleCreateAdoptionPet} className="space-y-4 bg-slate-50/65 p-5 rounded-2xl border border-gray-150">
+                    <h4 className="text-2xs font-extrabold text-indigo-900 uppercase">Publicar Nueva Mascota</h4>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Nombre</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Rocky"
+                          value={newPetName}
+                          onChange={(e) => setNewPetName(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                          required
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Tipo</label>
+                        <select
+                          value={newPetType}
+                          onChange={(e) => setNewPetType(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-extrabold focus:outline-hidden"
+                        >
+                          <option value="Perro">🐶 Perro</option>
+                          <option value="Gato">🐱 Gato</option>
+                          <option value="Otro">🐰 Otro</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Raza / Variedad</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Mestizo o Siamés"
+                          value={newPetBreed}
+                          onChange={(e) => setNewPetBreed(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Edad o Tiempo</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: 1 año, 6 meses"
+                          value={newPetAge}
+                          onChange={(e) => setNewPetAge(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Estado de Salud</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Sano / Vacunado"
+                          value={newPetHealth}
+                          onChange={(e) => setNewPetHealth(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Fundación Socios</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: Refugio Patrañas"
+                          value={newPetFoundation}
+                          onChange={(e) => setNewPetFoundation(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">URL de Foto de la Mascota</label>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/... o vacío para usar default"
+                        value={newPetImg}
+                        onChange={(e) => setNewPetImg(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-mono focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Biografía / Datos para postular</label>
+                      <textarea
+                        placeholder="Describe el temperamento del animal, compatibilidad y cómo ponerse en contacto..."
+                        value={newPetDesc}
+                        onChange={(e) => setNewPetDesc(e.target.value)}
+                        rows={2}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingPet}
+                      className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-3xs uppercase tracking-wider rounded-xl cursor-pointer shadow-3xs"
+                    >
+                      {savingPet ? 'Publicando...' : '🐾 Publicar Mascota para Adopción'}
+                    </button>
+                  </form>
+
+                  {/* Right Column: Collection List */}
+                  <div className="space-y-3.5 flex flex-col">
+                    <div className="flex justify-between items-center bg-slate-50 px-3.5 py-2 rounded-xl">
+                      <span className="text-2xs font-extrabold text-slate-700 uppercase">Mascotas Vigentes ({adoptionPets.length})</span>
+                      <span className="text-4xs text-slate-400 font-bold uppercase font-mono">Vitrina Activa</span>
+                    </div>
+
+                    {adoptionPets.length === 0 ? (
+                      <div className="flex-1 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+                        <span className="text-2xl">🧸</span>
+                        <p className="text-3xs text-gray-400 font-extrabold uppercase mt-2">No hay mascotas registradas actualmente.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                        {adoptionPets.map((pet: any) => (
+                          <div key={pet.id} className="p-3 bg-white border border-gray-150 rounded-2xl hover:border-gray-350 transition-colors flex gap-3 items-center justify-between text-left">
+                            <div className="flex gap-3 items-center min-w-0">
+                              <img src={pet.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=350'} className="w-11 h-11 rounded-full object-cover shrink-0 border border-slate-200" referrerPolicy="no-referrer" />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h5 className="text-[12px] font-black text-slate-900 leading-tight truncate">{pet.name}</h5>
+                                  <span className="text-[8px] bg-indigo-50 text-indigo-700 font-extrabold px-1.5 py-0.2 rounded uppercase">
+                                    {pet.type}
+                                  </span>
+                                </div>
+                                <p className="text-4xs text-slate-400 mt-0.5 truncate font-bold uppercase">📍 Fundación: {pet.foundation}</p>
+                                <p className="text-[10px] text-slate-500 leading-normal line-clamp-1">{pet.description || 'Sin descripción.'}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAdoptionPet(pet.id)}
+                              className="p-1.5 rounded-xl bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors cursor-pointer"
+                              title="Retirar mascota de la vitrina"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Dynamic Promotional Materials Manager */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-md border border-gray-150 space-y-6 lg:col-span-2">
+                <div>
+                  <span className="text-3xs uppercase text-green-700 font-extrabold tracking-widest block mb-1 font-mono">DIFUSIÓN & MARKETING COMERCIAL</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-green-600" /> Admin. de Material Promocional
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">
+                    Carga los kits gráficos, plantillas de bolsas reutilizables o diseños de calcomanías Petmall para libre descarga de tus tiendas adheridas.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Left Column: Form */}
+                  <form onSubmit={handleCreatePromotionalMaterial} className="space-y-4 bg-slate-50/65 p-5 rounded-2xl border border-gray-150">
+                    <h4 className="text-2xs font-extrabold text-green-900 uppercase">Subir Material Promocional</h4>
+
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Título del Material</label>
+                      <input
+                        type="text"
+                        placeholder="Ej: Stickers Oficiales Petmall 2026"
+                        value={newMatTitle}
+                        onChange={(e) => setNewMatTitle(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Formato</label>
+                        <input
+                          type="text"
+                          placeholder="Ej: PDF o ZIP"
+                          value={newMatFormat}
+                          onChange={(e) => setNewMatFormat(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                          required
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[9px] font-bold text-gray-500 uppercase mb-1">Estilo de Icono</label>
+                        <select
+                          value={newMatIconName}
+                          onChange={(e) => setNewMatIconName(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-extrabold focus:outline-hidden"
+                        >
+                          <option value="FileText">📄 Archivo de Texto / Poster</option>
+                          <option value="FileImage">🖼️ Gráfico / Calcomanía</option>
+                          <option value="ShoppingBag">🛍️ Bolsa Oficial</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase mb-1">Link de Descarga Directa (URL)</label>
+                      <input
+                        type="url"
+                        placeholder="https://drive.google.com/..."
+                        value={newMatDownloadUrl}
+                        onChange={(e) => setNewMatDownloadUrl(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-mono focus:outline-hidden"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase mb-1">Descripción del Archivo</label>
+                      <textarea
+                        placeholder="Explica a los comerciantes cómo mandarlo a la imprenta o cómo usar este material..."
+                        value={newMatDesc}
+                        onChange={(e) => setNewMatDesc(e.target.value)}
+                        rows={2}
+                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-hidden"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingMaterial}
+                      className="w-full py-2 bg-green-650 hover:bg-green-700 text-white font-black text-3xs uppercase tracking-wider rounded-xl cursor-pointer shadow-3xs"
+                    >
+                      {savingMaterial ? 'Subiendo...' : '📥 Publicar Recurso Descargable'}
+                    </button>
+                  </form>
+
+                  {/* Right Column: Current Materials */}
+                  <div className="space-y-3.5 flex flex-col">
+                    <div className="flex justify-between items-center bg-slate-50 px-3.5 py-2 rounded-xl">
+                      <span className="text-2xs font-extrabold text-slate-700 uppercase">Descargas Publicadas ({promotionalMaterials.length})</span>
+                      <span className="text-4xs text-slate-400 font-bold uppercase font-mono">Disponibles Socios</span>
+                    </div>
+
+                    {promotionalMaterials.length === 0 ? (
+                      <div className="flex-1 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+                        <span className="text-2xl">📁</span>
+                        <p className="text-3xs text-gray-400 font-extrabold uppercase mt-2">No has publicado materiales promocionales aún.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        {promotionalMaterials.map((mat: any) => (
+                          <div key={mat.id} className="p-3 bg-white border border-gray-150 rounded-2xl hover:border-gray-350 transition-all flex gap-3 items-center justify-between text-left">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h5 className="text-[11px] font-bold text-slate-900 truncate leading-tight">{mat.title}</h5>
+                                <span className="text-[8px] bg-green-50 text-green-700 font-extrabold px-1.5 py-0.2 rounded font-mono">
+                                  {mat.format}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-normal mt-1">{mat.description}</p>
+                              <a 
+                                href={mat.downloadUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                referrerPolicy="no-referrer"
+                                className="text-indigo-600 hover:text-indigo-800 text-3xs font-extrabold uppercase mt-1 inline-block hover:underline"
+                              >
+                                🔗 Probar link de descarga
+                              </a>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePromotionalMaterial(mat.id)}
+                              className="p-1.5 rounded-xl bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0 transition-colors cursor-pointer"
+                              title="Eliminar recurso descargable"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* SUB-SCREEN 9: INTERACTIVE MARKETING PLAN & PARTNER GROWTH HUB */}
+        {activeTab === 'marketing' && (
+          <div className="space-y-8 text-left animate-fade-in">
+            
+            {/* Header Value Proposition Card */}
+            <div className="bg-[#102948] text-white rounded-3xl p-6 md:p-8 shadow-xl border border-white/5 relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-80 h-80 bg-[#DABD83]/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+              <div className="relative z-10 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="bg-amber-400 text-[#102948] text-[9px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Estrategia de Crecimiento Omnicanal
+                  </span>
+                  <span className="bg-white/10 text-[#DABD83] text-[9px] font-bold px-2.5 py-0.5 rounded-full border border-white/10 uppercase">
+                    Comuna Piloto: {activeCommune}
+                  </span>
+                </div>
+                
+                <h2 className="text-xl md:text-3xl font-serif font-black tracking-tight text-[#DABD83]">
+                  Vitrina Digital de Chile para tu Comercio No-Stress
+                </h2>
+                <p className="text-xs md:text-sm text-slate-300 max-w-3xl leading-relaxed">
+                  Conectamos de forma directa las pautas digitales de Google Search y Meta Ads con el stock local en tiempo real de tu tienda. Con un mensaje de valor fuerte: <span className="text-[#DABD83] italic font-semibold">"Todo lo que tu mascota necesita, en un solo lugar, confiable y a un clic."</span>
+                </p>
+
+                {/* Promoción 3 meses gratis banner */}
+                <div className="inline-flex flex-col sm:flex-row sm:items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-2xl">
+                  <div className="bg-[#cdaf7a]/20 p-2 rounded-xl border border-[#cdaf7a]/30">
+                    <DollarSign className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest block">Beneficio Store Temprano (Socio Fundador)</span>
+                    <span className="text-2xs text-white block"><b>¡3 Meses de Suscripción 0% Comisión!</b> Tu comercio cuenta con período de gracia activo hasta el lanzamiento oficial de la comuna piloto.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Interactive Workspace Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Left Column: Google Search & Meta Campaign Simulator */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-150 shadow-xs space-y-6">
+                <div>
+                  <span className="text-3xs uppercase text-[#cdaf7a] font-extrabold tracking-widest block mb-1">Métricas Clave & Presupuesto</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <BarChart className="w-5 h-5 text-[#102948]" /> Simulador de Pauta e Inversión Hiperlocal
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">Configura el presupuesto estimado en anuncios pagados para proyectar el tráfico potencial en tu comuna.</p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Select Pilot Commune */}
+                  <div className="flex flex-col">
+                    <label className="text-3xs font-black text-gray-400 uppercase mb-1.5">Comuna Piloto del Anuncio (Configurado por Central)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(platformSettings?.activePilotCommunes || ['Santiago', 'Valparaíso', 'Viña del Mar', 'Concepción']).map((com: string) => (
+                        <button
+                          key={com}
+                          type="button"
+                          onClick={() => setActiveCommune(com as any)}
+                          className={`px-3 py-1.5 text-3xs font-black rounded-lg text-center transition-all border cursor-pointer ${
+                            activeCommune === com
+                              ? 'bg-[#102948] text-[#DABD83] border-[#102948]'
+                              : 'bg-gray-50 hover:bg-gray-100 text-gray-500 border-gray-200'
+                          }`}
+                        >
+                          📍 {com}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Range Slider for Budget */}
+                  <div className="flex flex-col">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-3xs font-black text-gray-500 uppercase">Presupuesto Mensual Estimado</label>
+                      <span className="text-xs font-black text-[#102948] bg-gray-100 px-2 py-0.5 rounded">
+                        ${campaignBudget.toLocaleString('es-CL')} CLP
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="15000"
+                      max="400000"
+                      step="5000"
+                      value={campaignBudget}
+                      onChange={(e) => setCampaignBudget(parseInt(e.target.value))}
+                      className="w-full accent-[#102948] h-1.5 bg-gray-200 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[9px] text-gray-400 font-bold mt-1">
+                      <span>Min: $15.000</span>
+                      <span>Mágica: $120.000</span>
+                      <span>Poderosa: $400.000</span>
+                    </div>
+                  </div>
+
+                  {/* Campaign Target */}
+                  <div className="flex flex-col">
+                    <label className="text-3xs font-black text-gray-500 uppercase mb-1.5">Enfoque de Campaña (Optimización)</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['both', 'sales', 'brand'] as const).map((goal) => (
+                        <button
+                          key={goal}
+                          type="button"
+                          onClick={() => setCampaignGoal(goal)}
+                          className={`px-2 py-1.5 text-4xs uppercase tracking-wider font-extrabold rounded-lg text-center transition-all border cursor-pointer ${
+                            campaignGoal === goal
+                              ? 'bg-amber-500 text-white border-amber-500'
+                              : 'bg-gray-50 hover:bg-gray-100 text-gray-500 border-gray-200'
+                          }`}
+                        >
+                          {goal === 'both' && '🔍 Equilibrio'}
+                          {goal === 'sales' && '🛒 Conversión'}
+                          {goal === 'brand' && '📣 Alcance'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calculation Outputs dynamically simulated */}
+                {(() => {
+                  const cpc = activeCommune === 'Santiago' ? 190 : activeCommune === 'Valparaíso' ? 165 : activeCommune === 'Viña del Mar' ? 160 : activeCommune === 'Concepción' ? 145 : 150;
+                  const cr = campaignGoal === 'sales' ? 0.038 : campaignGoal === 'brand' ? 0.016 : 0.026;
+                  const estimatedClicks = Math.floor(campaignBudget / cpc);
+                  const acquiredCustomers = Math.round(estimatedClicks * cr);
+                  const approxCac = Math.round(campaignBudget / (acquiredCustomers || 1));
+                  
+                  return (
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-4">
+                      <span className="text-[10px] font-extrabold text-[#102948] block">Resultados Proyectados para {activeCommune}</span>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white p-3 rounded-xl border border-gray-150">
+                          <span className="text-[10px] text-gray-400 font-bold block">Visitas Locales Organizadas</span>
+                          <span className="text-lg font-mono font-black text-[#102948]">{estimatedClicks.toLocaleString('es-CL')}</span>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Clicks con CPC de ${cpc} CLP</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-150">
+                          <span className="text-[10px] text-gray-400 font-bold block">Tasa de Conversión</span>
+                          <span className="text-lg font-mono font-black text-green-700">{(cr * 100).toFixed(1)}%</span>
+                          <p className="text-[9px] text-slate-400 mt-0.5">Meta: {campaignGoal === 'sales' ? 'Venta Directa' : campaignGoal === 'brand' ? 'Notoriedad' : 'Fidelización'}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-150 col-span-2">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="text-[10px] text-gray-400 font-bold block">Clientes Nuevos para tu Local (Estimado)</span>
+                              <span className="text-xl font-sans font-black text-indigo-700">{acquiredCustomers} Clientes</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] text-gray-400 font-bold block">CAC Promedio</span>
+                              <span className="text-xs font-mono font-bold text-gray-500">${approxCac.toLocaleString('es-CL')} CLP</span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div 
+                              className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.min(100, (acquiredCustomers / 80) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center gap-2 text-[10px] text-[#102948] font-semibold italic bg-amber-50/75 border border-amber-200 p-3 rounded-xl">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 select-none animate-bounce" />
+                  <span>Petmall financia y co-administra el {platformSettings?.marketingCoFundingRate || 20}% adicional de la pauta publicitaria en comunas piloto durante la fase de lanzamiento oficial acordada.</span>
+                </div>
+              </div>
+
+              {/* Right Column: Organic SEO & Social Media Generator */}
+              <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-150 shadow-xs space-y-6">
+                <div>
+                  <span className="text-3xs uppercase text-[#cdaf7a] font-extrabold tracking-widest block mb-1">Marketing de Contenidos & SEO</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-[#102948]" /> Planeador de Contenido & Ley Cholito
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">El marketing orgánico te posiciona en Google gratis. Copia o utiliza estos artículos recomendados en tu tienda.</p>
+                </div>
+
+                {/* Predeclared Drafts with Copy triggers */}
+                <div className="space-y-3.5">
+                  {customDrafts.map((draft) => (
+                    <div key={draft.id} className="p-3 bg-gray-50 rounded-2xl border border-gray-150 relative overflow-hidden flex flex-col justify-between gap-3">
+                      <div>
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="px-2 py-0.5 bg-[#102948]/10 text-[#102948] text-4xs font-bold uppercase rounded tracking-wider">
+                            {draft.category}
+                          </span>
+                          <span className="text-4xs text-gray-400 font-mono font-bold">{draft.date}</span>
+                        </div>
+                        <h4 className="text-3xs font-black text-[#102948] mt-1.5 leading-tight">{draft.title}</h4>
+                        <p className="text-4xs text-gray-400 mt-1 line-clamp-2 leading-normal">{draft.body}</p>
+                      </div>
+
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (draft.body) {
+                              navigator.clipboard.writeText(`${draft.title}\n\n${draft.body}\n\n#Petmall #TenenciaResponsable #Chile`);
+                              setCopiedDraftId(draft.id);
+                              setTimeout(() => setCopiedDraftId(null), 2500);
+                            }
+                          }}
+                          className={`px-2 py-1 font-sans text-4xs font-black uppercase rounded transition-all cursor-pointer ${
+                            copiedDraftId === draft.id
+                              ? 'bg-green-700 text-white'
+                              : 'bg-white text-brand-blue border border-gray-250 hover:bg-gray-100 shadow-3xs'
+                          }`}
+                        >
+                          {copiedDraftId === draft.id ? '✓ ¡Copiado!' : '📋 Copiar Borrador'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Blog content submitting simulation */}
+                <div className="border-t border-gray-100 pt-4 space-y-3">
+                  <span className="text-3xs font-extrabold text-gray-500 uppercase block">Proponer un Nuevo Artículo de Blog del Portal</span>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Título de la publicación..."
+                      value={newBlogTitle}
+                      onChange={(e) => setNewBlogTitle(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-150 rounded-xl text-3xs font-semibold focus:outline-hidden"
+                    />
+                    <select
+                      value={newBlogCategory}
+                      onChange={(e) => setNewBlogCategory(e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-50 border border-gray-150 rounded-xl text-3xs font-extrabold focus:outline-hidden"
+                    >
+                      <option value="Salud Animal">Salud Animal</option>
+                      <option value="Nutrición Ecológica">Nutrición Ecológica</option>
+                      <option value="Comunidad & Ayuda">Comunidad & Ayuda</option>
+                      <option value="Leyes & Derechos">Leyes & Derechos</option>
+                    </select>
+                  </div>
+                  <textarea
+                    placeholder="Escribe un breve resumen de tu artículo. Ej: 'Beneficios de no dar chocolate a los caninos...'"
+                    value={newBlogBody}
+                    onChange={(e) => setNewBlogBody(e.target.value)}
+                    rows={2}
+                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-150 rounded-xl text-3xs font-semibold focus:outline-hidden"
+                  />
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newBlogTitle.trim() || !newBlogBody.trim()) {
+                        alert('Completa el título y descripción del artículo.');
+                        return;
+                      }
+                      const newItem = {
+                        id: (customDrafts.length + 1).toString(),
+                        title: newBlogTitle,
+                        category: newBlogCategory,
+                        date: new Date().toISOString().split('T')[0],
+                        body: newBlogBody
+                      };
+                      setCustomDrafts([newItem, ...customDrafts]);
+                      setNewBlogTitle('');
+                      setNewBlogBody('');
+                      alert('¡Borrador guardado con éxito! Se cargará dinámicamente en tu sección de contenidos del portal.');
+                    }}
+                    className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-3xs font-semibold uppercase rounded-xl transition-colors cursor-pointer"
+                  >
+                    Crear & Persistir Borrador SEO
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Alignment block: Foundations & Social Value pact */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-150 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-3xs uppercase text-[#cdaf7a] font-extrabold tracking-widest block mb-1">Responsabilidad Social & Reputación</span>
+                  <h3 className="text-base font-serif font-black text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" /> Alianza Estratégica para la Adopción Animal
+                  </h3>
+                  <p className="text-3xs text-gray-400 mt-1">Nuestra estrategia física-digital provee espacio totalmente gratuito a refugios de rescate animal certificados en Chile.</p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-3xs font-bold text-gray-500 uppercase">Auspiciar Adopciones</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAllianceFoundations(!allianceFoundations);
+                    }}
+                    className={`w-12 h-6 rounded-full p-0.5 transition-colors relative cursor-pointer ${
+                      allianceFoundations ? 'bg-green-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform transform ${
+                      allianceFoundations ? 'translate-x-6' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-7 h-7 bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center rounded-lg text-xs">1</div>
+                    <h4 className="text-3xs font-black text-[#102948] uppercase tracking-wide mt-2">Vitrina de Adopción</h4>
+                    <p className="text-4xs text-gray-400 leading-normal mt-1">
+                      Habilitarás un feed visible de animales rescatados en tu perfil de tienda, aportando un gran rol comunitario y mejorando tu conversión con dueños de mascotas empáticos.
+                    </p>
+                  </div>
+                  {adoptionPets.length > 0 && (
+                    <div className="bg-white p-2.5 rounded-xl border border-gray-200/60 text-left space-y-1.5">
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block font-mono">Mascotas en Red ({adoptionPets.length})</span>
+                      <div className="flex gap-2 items-center overflow-x-auto py-0.5">
+                        {adoptionPets.slice(0, 3).map((p: any) => (
+                          <div key={p.id} className="relative group shrink-0" title={`${p.name} - ${p.foundation}`}>
+                            <img src={p.imageUrl} className="w-8 h-8 rounded-full object-cover border border-slate-200" referrerPolicy="no-referrer" />
+                            <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 border border-white"></span>
+                          </div>
+                        ))}
+                        {adoptionPets.length > 3 && (
+                          <span className="text-4xs text-gray-400 font-bold">+{adoptionPets.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-7 h-7 bg-amber-100 text-amber-700 font-extrabold flex items-center justify-center rounded-lg text-xs">2</div>
+                    <h4 className="text-3xs font-black text-[#102948] uppercase tracking-wide mt-2">Multiplicador en Buscador</h4>
+                    <p className="text-4xs text-gray-400 leading-normal mt-1">
+                      Las tiendas activas que auspician fundaciones suben un factor de multiplicador dinámico en la prioridad de posición de búsqueda del mapa Marketplace Home.
+                    </p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center">
+                    <span className="text-[10px] text-amber-800 uppercase block font-mono font-bold">Multiplicador Activo</span>
+                    <span className="text-xl font-bold text-amber-900 font-mono">{(platformSettings?.searchMultiplier || 1.2)}x prioridad</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="w-7 h-7 bg-green-100 text-green-700 font-extrabold flex items-center justify-center rounded-lg text-xs">3</div>
+                    <h4 className="text-3xs font-black text-[#102948] uppercase tracking-wide mt-2">Material Promocional</h4>
+                    <p className="text-4xs text-gray-400 leading-normal mt-1">
+                      Descarga directo calcomanías oficiales, bolsas ecológicas de Petmall y manuales aprobados por el corporativo central.
+                    </p>
+                  </div>
+                  {promotionalMaterials.length > 0 ? (
+                    <div className="space-y-1">
+                      {promotionalMaterials.slice(0, 2).map((m: any) => (
+                        <a 
+                          key={m.id} 
+                          href={m.downloadUrl} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          referrerPolicy="no-referrer"
+                          className="flex items-center justify-between p-1.5 bg-white border border-gray-200 hover:border-green-300 rounded-lg text-[9px] font-bold text-slate-700 hover:text-green-800 transition-colors"
+                        >
+                          <span className="truncate max-w-[110px]">🟢 {m.title}</span>
+                          <span className="text-[8px] bg-slate-100 text-slate-500 rounded px-1">{m.format}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[9px] text-gray-400 font-bold italic">No hay archivos promocionales cargados aún.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* SUB-SCREEN 10: BLOG CORPORATIVO & MARKETING DE CONTENIDOS CMS */}
+        {activeTab === 'blog' && (
+          <div className="space-y-8 text-left animate-fade-in font-sans">
+            {/* If store plan does not support blog, show a beautiful upgrade teaser */}
+            {!(myStore?.planType === 'control_omnicanal' || myStore?.planType === 'enterprise_elite') ? (
+              <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-10 shadow-2xl border border-gray-850 text-center relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-96 h-96 bg-[#DABD83]/10 rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none animate-pulse" />
+                <div className="relative z-10 max-w-3xl mx-auto space-y-6">
+                  <div className="inline-flex p-3 bg-amber-500/10 border border-amber-500/20 text-brand-gold rounded-full px-4 text-xs font-black uppercase tracking-wider">
+                    👑 MÓDULO EXCLUSIVO DE CONTENIDOS OMNICANAL
+                  </div>
+                  <h2 className="text-2xl md:text-4xl font-serif font-black text-[#DABD83] tracking-tight">
+                    Multiplica tus Visitas y Ventas con tu Propio Blog Corporativo
+                  </h2>
+                  <p className="text-xs md:text-sm text-slate-300 leading-relaxed max-w-2xl mx-auto">
+                    Tu plan actual <span className="text-red-400 font-black">"Market & Growth"</span> no cuenta con el sistema de blog unificado ni compartibilidad en redes sociales con previsualizaciones automáticas dinámicas.
+                  </p>
+                  
+                  {/* Grid to show sharing capabilities */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-left">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center font-bold text-xs font-mono">WA</div>
+                      <h4 className="text-2xs font-extrabold uppercase text-[#DABD83]">WhatsApp & Telegram</h4>
+                      <p className="text-[10px] text-gray-400 leading-normal">
+                        Muestra portadas enriquecidas, descripciones del artículo y links limpios cada vez que compartes por chats privados o grupos locales.
+                      </p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs font-mono">X</div>
+                      <h4 className="text-2xs font-extrabold uppercase text-[#DABD83]">X, Threads & FB</h4>
+                      <p className="text-[10px] text-gray-400 leading-normal">
+                        Formato Cards adaptativo de última generación para captar mayor cantidad de clics directos del usuario y mejorar el SEO local.
+                      </p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+                      <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs font-mono">IG</div>
+                      <h4 className="text-2xs font-extrabold uppercase text-[#DABD83]">Instagram & LinkedIn</h4>
+                      <p className="text-[10px] text-gray-400 leading-normal">
+                        Previsualiza publicaciones profesionales con el logotipo corporativo de tu local, elevando la reputación veterinaria.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-6">
+                    <button
+                      onClick={async () => {
+                        const sId = currentUser?.storeId || 'store_1';
+                        try {
+                          const res = await fetch(`/api/stores/${sId}/upgrade`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              planType: 'control_omnicanal', 
+                              planName: 'Plan Control & Omnicanal 🚀' 
+                            })
+                          });
+                          if (res.ok) {
+                            alert('¡Excelente decisión! Tu plan se ha actualizado exitosamente. Disfruta de la creación unificada de contenido en Petmall.');
+                            fetchStores();
+                          }
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className="bg-[#DABD83] hover:bg-[#cdaf7a] text-[#102948] font-sans font-black text-xs uppercase px-8 py-4 rounded-2xl transition-all shadow-md tracking-wider cursor-pointer transform hover:scale-101 inline-flex items-center gap-2"
+                    >
+                      Mejorar a Plan "Control & Omnicanal" <Sparkles className="w-4 h-4" />
+                    </button>
+                    <p className="text-[8px] text-gray-400 mt-2">Suscripción SaaS se factura mensualmente. Cancela cuando quieras desde tu panel.</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Active blog system
+              <div className="space-y-8 animate-fade-in">
+                {/* 1. Blog Management Actions Bar */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-150 shadow-3xs">
+                  <div>
+                    <h2 className="font-serif font-black text-[#102948] text-base">Tus Artículos de Blog Publicados</h2>
+                    <p className="text-3xs text-gray-450 mt-0.5 font-bold uppercase tracking-wider">
+                      Privilegios activos para: dueños y colaboradores autorizados
+                    </p>
+                  </div>
+                  
+                  {!(currentUser?.role === 'SUPER_USER' || currentUser?.role === 'STORE_OWNER' || storeUsers?.some(u => u.email.toLowerCase() === currentUser?.email?.toLowerCase() && u.allowBlog)) ? (
+                    <div className="px-4 py-2 bg-red-50 border border-red-150 rounded-xl text-3xs text-red-700 font-bold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Sin privilegios de redacción de blog para colaborador. Solicítalos a tu administrador principal.
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setEditingPost(null);
+                        setBlogTitle('');
+                        setBlogSlug('');
+                        setBlogBannerUrl('');
+                        setBlogExcerpt('');
+                        setBlogContent('');
+                        setBlogTags('');
+                        setBlogStatus('PUBLISHED');
+                        setBlogFormOpen(true);
+                      }}
+                      className="bg-[#102948] text-white hover:bg-[#cdaf7a] hover:text-[#102948] font-sans font-black text-xs uppercase px-5 py-3 rounded-xl transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" /> Escribir Artículo de Blog
+                    </button>
+                  )}
+                </div>
+
+                {/* 2. Blog Creation/Edition Modal or Collapsible Panel */}
+                {blogFormOpen && (
+                  <div className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 shadow-md grid grid-cols-1 lg:grid-cols-2 gap-8 text-left animate-fade-in">
+                    
+                    {/* Left Col: The Form fields */}
+                    <form onSubmit={handleSaveBlogPost} className="space-y-5">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                        <h3 className="font-serif font-black text-md text-[#102948]">
+                          {editingPost ? '✏️ Editar Artículo de Blog' : '✍️ Crear Nuevo Artículo'}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setBlogFormOpen(false)}
+                          className="p-1 rounded-lg hover:bg-gray-100 text-gray-450 cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1 text-left">
+                        <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Título del Artículo</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Tips de Baño Seco o Nutrición"
+                          value={blogTitle}
+                          onChange={(e) => {
+                            setBlogTitle(e.target.value);
+                            setBlogSlug(e.target.value.toLowerCase().trim().replace(/[\s\W]+/g, '-'));
+                          }}
+                          className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-3 text-xs focus:ring-1 focus:ring-[#DABD83] outline-hidden text-[#102948] font-bold"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Slug URL Amigable</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="url-del-articulo"
+                            value={blogSlug}
+                            onChange={(e) => setBlogSlug(e.target.value)}
+                            className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-indigo-950 font-mono font-bold"
+                          />
+                        </div>
+                        <div className="space-y-1 text-left">
+                          <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Tags (Separados por coma)</label>
+                          <input
+                            type="text"
+                            placeholder="Salud, Nutrición, Tips"
+                            value={blogTags}
+                            onChange={(e) => setBlogTags(e.target.value)}
+                            className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-[#102948] font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-left">
+                        <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Imagen de Portada (URL)</label>
+                        <input
+                          type="url"
+                          placeholder="https://images.unsplash.com/... o vacío para usar default"
+                          value={blogBannerUrl}
+                          onChange={(e) => setBlogBannerUrl(e.target.value)}
+                          className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2.5 text-xs text-[#102948] font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-1 text-left">
+                        <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Resumen Informativo (Excerpt)</label>
+                        <textarea
+                          rows={2}
+                          placeholder="Engancha a tus usuarios en redes sociales..."
+                          value={blogExcerpt}
+                          onChange={(e) => setBlogExcerpt(e.target.value)}
+                          className="w-full bg-slate-50 border border-gray-200 rounded-xl px-4 py-2 text-xs text-[#102948] font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-1 text-left">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] text-gray-450 font-extrabold uppercase block tracking-wider">Cuerpo / Contenido</label>
+                          <span className="text-[8px] text-emerald-600 uppercase font-black tracking-wider">Editor En Vivo</span>
+                        </div>
+                        <textarea
+                          rows={6}
+                          required
+                          placeholder="Escribe recomendaciones, consejos sanitarios, juguetes interactivos de soga, etc..."
+                          value={blogContent}
+                          onChange={(e) => setBlogContent(e.target.value)}
+                          className="w-full bg-slate-50 border border-gray-200 rounded-xl p-4 text-xs font-mono text-gray-800"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="space-x-2">
+                          <span className="text-[10px] text-gray-400 font-extrabold uppercase">Estado:</span>
+                          <select
+                            value={blogStatus}
+                            onChange={(e) => setBlogStatus(e.target.value as any)}
+                            className="bg-slate-50 border border-gray-200 text-xs px-3 py-1.5 rounded-lg text-[#102948] font-bold cursor-pointer font-sans"
+                          >
+                            <option value="PUBLISHED">Publicado (Activo)</option>
+                            <option value="DRAFT">Borrador Secreto</option>
+                          </select>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBlogFormOpen(false)}
+                            className="px-4 py-2 border border-gray-200 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-50 cursor-pointer font-sans"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-5 py-2.5 bg-[#102948] text-[#DABD83] rounded-xl text-xs font-black uppercase tracking-wider hover:bg-[#cdaf7a] hover:text-[#102948] transition-all shadow-xs cursor-pointer font-sans"
+                          >
+                            Sincronizar Articulo
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+
+                    {/* Right Col: Social Network Dynamic Card Live Previewer */}
+                    <div className="space-y-5 bg-slate-50 p-6 rounded-3xl border border-gray-150 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5 text-[#102948] font-serif font-black text-xs">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                          Simulador en Redes Sociales (Social Previews Live)
+                        </div>
+                        <p className="text-[10px] text-gray-400 leading-normal">
+                          Cada artículo publicado en Petmall está optimizado dinámicamente utilizando tags OG y JSON-LD. Selecciona los botones para ver cómo se estructurará tu contenido:
+                        </p>
+
+                        {/* Social Platform Selection Tabs */}
+                        <div className="flex flex-wrap gap-1.5 pt-2 border-b border-gray-200 pb-3">
+                          {[
+                            { code: 'whatsapp', label: 'WhatsApp' },
+                            { code: 'telegram', label: 'Telegram' },
+                            { code: 'X', label: 'X (Twitter)' },
+                            { code: 'facebook', label: 'Facebook' },
+                            { code: 'threads', label: 'Threads' },
+                            { code: 'instagram', label: 'Instagram' },
+                            { code: 'linkedin', label: 'LinkedIn' },
+                          ].map(t => (
+                            <button
+                              key={t.code}
+                              type="button"
+                              onClick={() => setPreviewPlatform(t.code as any)}
+                              className={`px-2.5 py-1.5 rounded-lg text-4xs font-black transition-colors uppercase tracking-wider cursor-pointer ${
+                                previewPlatform === t.code 
+                                  ? 'bg-[#102948] text-[#DABD83] shadow-3xs' 
+                                  : 'bg-white border rounded-lg text-gray-500 border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Dynamic Mockup Card Box */}
+                      <div className="flex-1 py-4 flex items-center justify-center min-h-[240px]">
+                        
+                        {/* A. WHATSAPP MOCKUP */}
+                        {previewPlatform === 'whatsapp' && (
+                          <div className="max-w-[340px] w-full bg-[#d9fdd3] text-[#303030] rounded-xl p-3 shadow-xs border border-[#b9e6b4] text-left relative font-sans text-xs">
+                            <span className="absolute right-2 bottom-1.5 text-[9px] text-[#667781] font-medium flex items-center gap-1">
+                              12:44 pm ✓✓
+                            </span>
+                            <div className="space-y-2 pb-3 pr-4">
+                              <p className="text-[#303030] leading-normal">
+                                ¡Hola! miren este artículo veterinario de <b>{myStore.name}</b>, está muy interesante para cuidar a las mascotas:
+                              </p>
+                              <span className="text-teal-700 underline block font-semibold break-all text-[9px] font-mono">
+                                petmall-ecosystem.com/store/{myStore.id}/blog/{blogSlug || 'nutricion-barf'}
+                              </span>
+                            </div>
+                            
+                            {/* Rich Preview Box */}
+                            <div className="bg-[#cfeec2]/50 rounded-lg overflow-hidden border border-[#b4e0a7]/30 flex flex-col">
+                              <div className="flex">
+                                <div className="p-3 flex-1 space-y-1">
+                                  <span className="text-[10px] text-[#667781] font-black uppercase tracking-wider block">PETMALL STORE BLOG</span>
+                                  <h4 className="font-sans font-bold text-gray-900 text-2xs line-clamp-2 leading-snug">
+                                    {blogTitle || 'Título del Artículo de mi Blog'}
+                                  </h4>
+                                  <p className="text-[10px] text-[#667781] line-clamp-2 leading-snug">
+                                    {blogExcerpt || 'Breve resumen explicativo que motiva el ingreso.'}
+                                  </p>
+                                </div>
+                                <div className="w-20 h-20 bg-gray-100 shrink-0 border-l border-[#b4e0a7]/30">
+                                  <img 
+                                    src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&q=80'} 
+                                    className="w-full h-full object-cover" 
+                                    alt="Thumbnail"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* B. TELEGRAM MOCKUP */}
+                        {previewPlatform === 'telegram' && (
+                          <div className="max-w-[345px] w-full bg-[#ffffff] text-gray-900 rounded-2xl p-3.5 shadow-xs border border-gray-150 text-left font-sans text-xs relative">
+                            <div className="space-y-2">
+                              <p className="leading-normal">
+                                Recomendación de <b>{myStore.name}</b> para el cuidado diario mascotero de la comuna:
+                              </p>
+                              
+                              <div className="border-l-3 border-[#3390ec] pl-3 py-1 space-y-2 bg-slate-50/50 rounded-r-lg pr-2">
+                                <span className="text-[#3390ec] font-black text-[10px] block uppercase tracking-wide">
+                                  {myStore.name} — Blog Oficial
+                                </span>
+                                <h4 className="font-bold text-[#000000] text-3xs leading-snug">
+                                  {blogTitle || 'Título de Blog Corporativo'}
+                                </h4>
+                                <p className="text-[10px] text-gray-600 line-clamp-2 leading-normal">
+                                  {blogExcerpt || 'Resumen corto optimizado para indexación rápida Open Graph.'}
+                                </p>
+                                
+                                <div className="aspect-[1.91/1] w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-150 relative">
+                                  <img 
+                                    src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'} 
+                                    className="w-full h-full object-cover" 
+                                    alt="Banner preview"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                            <span className="absolute right-3.5 bottom-1 text-[9px] text-gray-400">12:44 ✓</span>
+                          </div>
+                        )}
+
+                        {/* C. X (TWITTER) MOCKUP */}
+                        {previewPlatform === 'X' && (
+                          <div className="max-w-[340px] w-full bg-[#000000] text-white rounded-2xl p-4 shadow-md border border-zinc-800 text-left font-sans text-xs">
+                            <div className="flex items-start gap-2.5 pb-2">
+                              <div className="w-8 h-8 rounded-full bg-[#102948] text-[#DABD83] shrink-0 font-bold flex items-center justify-center text-3xs border border-white/10 uppercase">
+                                {myStore.name.substring(0, 2)}
+                              </div>
+                              <div>
+                                <span className="font-black text-[11px] text-white block">
+                                  {myStore.name}
+                                </span>
+                                <span className="text-[9px] text-zinc-500 block leading-none mt-0.5">
+                                  @{myStore.id}_petmall · Reciente
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-zinc-250 mt-1 line-clamp-2 text-3xs leading-relaxed">
+                              {blogExcerpt || 'Descubre de primera fuente nuestro último análisis veterinario. ¡Leamos juntos! #Veterinaria #Petmall'}
+                            </p>
+
+                            <div className="mt-3 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 flex flex-col hover:border-zinc-700 transition-colors">
+                              <div className="aspect-[1.91/1] w-full bg-zinc-900 border-b border-zinc-800">
+                                <img
+                                  src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'}
+                                  className="w-full h-full object-cover"
+                                  alt="Card preview"
+                                />
+                              </div>
+                              <div className="p-3 text-[9px] space-y-1">
+                                <span className="text-zinc-500 font-bold block uppercase tracking-widest text-[8px]">PETMALL-ECOSYSTEM.COM</span>
+                                <h4 className="font-bold text-white text-3xs truncate">
+                                  {blogTitle || 'Título del artículo publicado'}
+                                </h4>
+                                <p className="text-zinc-400 line-clamp-1 leading-normal">
+                                  {blogExcerpt || 'Breve descripción que incita a los usuarios de la red a ingresar de inmediato.'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* D. FACEBOOK MOCKUP */}
+                        {previewPlatform === 'facebook' && (
+                          <div className="max-w-[340px] w-full bg-[#f0f2f5] text-gray-900 rounded-2xl p-0 shadow-xs border border-gray-200 text-left font-sans text-xs overflow-hidden">
+                            <div className="p-3.5 bg-white space-y-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-9 h-9 rounded-full bg-indigo-600 text-white shrink-0 font-extrabold flex items-center justify-center text-xs">f</div>
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-gray-900 text-2xs block leading-tight">{myStore.name}</span>
+                                  <span className="text-5xs text-gray-500 font-extrabold block uppercase tracking-widest">Patrocinado · Público</span>
+                                </div>
+                              </div>
+                              <p className="text-gray-700 line-clamp-2">
+                                {blogExcerpt || 'La medicina preventiva y nutrición adecuada reduce significativamente la tasa de consultas veterinarias habituales.'}
+                              </p>
+                            </div>
+
+                            <div className="bg-white border-y border-gray-150 cursor-pointer">
+                              <div className="aspect-[1.91/1] w-full bg-gray-50">
+                                <img
+                                  src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'}
+                                  className="w-full h-full object-cover"
+                                  alt="Facebook preview"
+                                />
+                              </div>
+                              <div className="p-3 bg-gray-100 space-y-0.5 border-t border-gray-150">
+                                <span className="text-5xs text-gray-500 font-extrabold uppercase tracking-widest">PETMALL-ECOSYSTEM.COM</span>
+                                <h4 className="font-extrabold text-gray-900 text-2xs leading-snug line-clamp-1">{blogTitle || 'Tu Post de Blog'}</h4>
+                                <p className="text-[10px] text-gray-500 line-clamp-1">{blogExcerpt || 'Descripción extendida sobre este asombroso artículo.'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* E. THREADS MOCKUP */}
+                        {previewPlatform === 'threads' && (
+                          <div className="max-w-[340px] w-full bg-[#ffffff] text-black rounded-2xl p-4 shadow-xs border border-gray-150 text-left font-sans text-xs">
+                            <div className="flex gap-3">
+                              <div className="flex flex-col items-center shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-black text-white shrink-0 font-bold flex items-center justify-center text-4xs uppercase">
+                                  {myStore.name.substring(0, 2)}
+                                </div>
+                                <div className="w-[1px] bg-gray-200 mt-2 flex-grow" />
+                              </div>
+                              
+                              <div className="space-y-2 flex-1 text-left">
+                                <span className="font-extrabold text-[11px] text-gray-950 block">{myStore.id}_petmall</span>
+                                <p className="text-gray-800 leading-normal text-3xs">
+                                  {blogExcerpt || 'Excelente publicación sobre el valor biológico preventivo que acabamos de soltar.'}
+                                </p>
+                                
+                                <div className="rounded-xl overflow-hidden border border-gray-200 bg-white hover:bg-slate-50 transition-colors">
+                                  <div className="aspect-[1.91/1] w-full bg-gray-50">
+                                    <img
+                                      src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'}
+                                      className="w-full h-full object-cover"
+                                      alt="Threads preview"
+                                    />
+                                  </div>
+                                  <div className="p-3 text-[9px] space-y-0.5 text-left bg-zinc-50/50">
+                                    <span className="text-gray-400 font-extrabold uppercase block text-[8px] tracking-widest">PETMALL SINOPSIS</span>
+                                    <h4 className="font-black text-gray-950 leading-tight block">{blogTitle || 'Mi Artículo'}</h4>
+                                    <p className="text-gray-500 line-clamp-2 mt-1 leading-normal">{blogExcerpt || 'Descubre todo con formato...'}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* F. INSTAGRAM MOCKUP */}
+                        {previewPlatform === 'instagram' && (
+                          <div className="max-w-[260px] w-full bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden font-sans text-xs">
+                            <div className="p-3 flex items-center gap-2 border-b border-gray-100 bg-white">
+                              <div className="w-6 h-6 rounded-full bg-linear-to-tr from-yellow-500 via-red-500 to-purple-600 p-[1.5px]">
+                                <div className="w-full h-full rounded-full bg-white flex items-center justify-center font-bold text-[8px] uppercase">
+                                  {myStore.name.substring(0, 1)}
+                                </div>
+                              </div>
+                              <span className="font-extrabold text-[10px] text-gray-900">{myStore.id}_petmall</span>
+                            </div>
+                            
+                            <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                              <img
+                                src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'}
+                                className="w-full h-full object-cover"
+                                alt="IG feed image"
+                              />
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-left">
+                                <span className="bg-amber-400 text-black text-[7px] px-1.5 py-0.5 rounded-sm font-black uppercase tracking-wider">PREVENTIVO</span>
+                                <h4 className="font-serif font-black text-white text-[10px] leading-tight line-clamp-2 mt-1">
+                                  {blogTitle || 'Título del Artículo de mi Blog'}
+                                </h4>
+                              </div>
+                            </div>
+
+                            <div className="p-3 text-left space-y-1 bg-white">
+                              <p className="line-clamp-2 text-[10px] leading-relaxed">
+                                <span className="font-black mr-1 text-gray-950">{myStore.id}_petmall</span>
+                                {blogExcerpt || 'Estrechando el lazo con tutorías y guías de cuidado animal orgánico veterinario.'}
+                              </p>
+                              <span className="text-[8px] text-gray-400 uppercase font-black block mt-1">Hace 2 horas</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* G. LINKEDIN MOCKUP */}
+                        {previewPlatform === 'linkedin' && (
+                          <div className="max-w-[340px] w-full bg-white rounded-xl p-4 shadow-xs border border-gray-200 text-left font-sans text-xs">
+                            <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                              <div className="w-8 h-8 rounded-lg bg-blue-700 text-white font-black flex items-center justify-center shrink-0">in</div>
+                              <div>
+                                <span className="font-extrabold text-gray-900 text-[11px] block">{myStore.name}</span>
+                                <span className="text-[9px] text-gray-400 block leading-tight">Servicios Veterinarios & Ecommerce B2B</span>
+                              </div>
+                            </div>
+
+                            <p className="text-gray-700 mt-2 line-clamp-2 text-3xs leading-relaxed">
+                              {blogExcerpt || 'Muy entusiasmados de publicar contenido de valor de base científica para aportar en nuestra red corporativa.'}
+                            </p>
+
+                            <div className="mt-3 border border-gray-200 bg-slate-50 rounded-lg overflow-hidden hover:bg-slate-100 transition-colors">
+                              <div className="aspect-[1.91/1] w-full bg-gray-200 border-b">
+                                <img
+                                  src={blogBannerUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&q=80'}
+                                  className="w-full h-full object-cover"
+                                  alt="LinkedIn preview"
+                                />
+                              </div>
+                              <div className="p-3 space-y-0.5">
+                                <h4 className="font-extrabold text-gray-900 text-3xs truncate">{blogTitle || 'Artículo Corporativo Petmall'}</h4>
+                                <span className="text-[9px] text-gray-400 font-bold uppercase block tracking-widest text-[8px]">petmall-ecosystem.com · 5 min lectura</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* Mock share actions */}
+                      <div className="bg-[#102948]/5 border border-[#102948]/10 p-3 rounded-2xl flex items-center justify-between text-left">
+                        <div className="text-3xs text-[#102948] font-bold">
+                          <span className="block uppercase text-[8px] text-[#cdaf7a] font-extrabold">Fórmula Compartible (SEO)</span>
+                          Previsualización sintonizada automáticamente
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(`https://petmall-ecosystem.com/store/${myStore.id}/blog/${blogSlug}`);
+                            alert(`¡Enlace copiado al portapapeles! Listo para pegar en tu widget de ${previewPlatform.toUpperCase()}`);
+                          }}
+                          className="px-3.5 py-1.5 bg-[#102948] hover:bg-[#cdaf7a] hover:text-[#102948] text-[#DABD83] rounded-lg text-3xs font-black transition-colors uppercase cursor-pointer"
+                        >
+                          Copiar Enlace
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Existing Blog Posts Grid Table representation */}
+                <div className="bg-white rounded-3xl border border-gray-150 p-6 md:p-8 shadow-3xs text-left">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
+                    <div>
+                      <h3 className="font-serif font-black text-[#102948] text-base">Artículos Redactados para tu Tienda</h3>
+                      <p className="text-3xs text-gray-400 font-medium leading-none">Los borradores permiten revisión antes de publicarse en la portada.</p>
+                    </div>
+
+                    <button
+                      onClick={fetchStoreBlogs}
+                      className="px-3 py-1.5 border hover:bg-gray-50 text-[#102948] rounded-xl text-3xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Sincronizar Feed
+                    </button>
+                  </div>
+
+                  {blogListLoading ? (
+                    <div className="py-20 text-center text-gray-400 text-xs font-bold font-sans">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[#102948]" /> Sincronizando repositorio de contenidos...
+                    </div>
+                  ) : blogPostsList.length === 0 ? (
+                    <div className="py-16 text-center text-gray-400 text-xs font-bold border border-dashed border-gray-200 bg-slate-50 rounded-3xl flex flex-col items-center justify-center space-y-2">
+                       <p className="text-[#102948] text-xs font-serif font-black">¡No hay artículos de blog asociados todavía!</p>
+                       <p className="text-3xs font-medium max-w-sm text-gray-400 font-sans">Los blogs incrementan el posicionamiento de tu ecommerce en casi un 25%. Haz clic en "Escribir Artículo" para comenzar ahora.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {blogPostsList.map((post) => (
+                        <div key={post.id} className="group bg-slate-50 hover:bg-white rounded-2xl border border-gray-150 overflow-hidden hover:shadow-md transition-all flex flex-col justify-between">
+                          <div className="relative aspect-video bg-gray-100 overflow-hidden">
+                            <img 
+                              src={post.bannerUrl || 'https://images.unsplash.com/photo-1541599540903-216a46ca1bf0?w=600&q=80'} 
+                              className="w-full h-full object-cover group-hover:scale-101 transition-all duration-300 pointer-events-none"
+                              alt={post.title}
+                            />
+                            <div className="absolute top-3 left-3 flex gap-1 items-center">
+                              <span className={`px-2 py-0.5 rounded-lg text-4xs font-black uppercase text-white shadow-xs ${
+                                post.status === 'PUBLISHED' ? 'bg-green-600' : 'bg-amber-500'
+                              }`}>
+                                {post.status === 'PUBLISHED' ? 'Público' : 'Borrador'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                            <div className="space-y-1.5 text-left">
+                              <span className="text-5xs uppercase text-gray-400 font-extrabold tracking-wider block font-sans">
+                                📅 {new Date(post.createdAt).toLocaleDateString('es-CL')} | Autor: {post.authorName}
+                              </span>
+                              <h4 className="font-serif font-black text-xs text-[#102948] leading-snug line-clamp-2">
+                                {post.title}
+                              </h4>
+                              <p className="text-3xs text-gray-450 line-clamp-2 leading-normal">
+                                {post.excerpt}
+                              </p>
+                              
+                              <div className="flex flex-wrap gap-1 pt-1.5">
+                                {post.tags && post.tags.map((tag: string) => (
+                                  <span key={tag} className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 rounded text-5xs font-black uppercase tracking-wide">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="border-t border-gray-200/50 pt-3.5 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => handleEditBlogPostClick(post)}
+                                className="text-2xs font-extrabold uppercase text-[#102948] hover:text-[#cdaf7a] hover:underline cursor-pointer"
+                              >
+                                Editar Artículo
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBlogPost(post.id)}
+                                className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg border border-transparent hover:border-red-100 transition-all cursor-pointer"
+                                title="Eliminar Post"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

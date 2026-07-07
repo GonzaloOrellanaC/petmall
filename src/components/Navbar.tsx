@@ -5,13 +5,14 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Search, Store as StoreIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShoppingCart, User, Search, Store as StoreIcon, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { usePetmallStore } from '../store.js';
 import publicIsotype from '../../assets/isotype_public_petmall.png';
 
 export default function Navbar() {
   const { cart, currentStore, stores, setCurrentStore, currentUser, logoutUser, sseConnected, isDemoMode } = usePetmallStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
 
   const totalCartCount = cart.reduce((acc, curr) => acc + curr.quantity, 0);
@@ -53,44 +54,116 @@ export default function Navbar() {
           {/* Right Navigation Controls */}
           <div className="flex items-center space-x-4">
             
-            {/* Auth Link OR Dashboard redirect */}
-            {currentUser ? (
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => navigate('/admin/dashboard')}
-                  className="hidden sm:inline-flex items-center text-xs font-semibold bg-brand-blue text-white px-3.5 py-1.5 rounded-full border border-brand-blue hover:bg-brand-blue/90 transition-all font-sans"
-                >
-                  Ir a CMS Administrativo
-                </button>
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-gray-500 font-medium hidden md:inline">
-                    {currentUser.role === 'STORE_OWNER' ? 'Admin' : 'Soporte'}
-                  </span>
-                  <button 
-                    onClick={() => {
-                      logoutUser();
-                      navigate('/');
-                    }} 
-                    className="text-xs text-red-600 hover:underline font-bold"
-                  >
-                    Salir
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <Link 
-                to="/auth/login" 
-                className="inline-flex items-center text-xs font-semibold text-brand-blue hover:text-brand-gold transition-all"
+            {/* Unified Portal & Blogs Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2 border border-[#102948]/15 hover:border-[#102948]/30 rounded-full text-[10px] font-black text-brand-blue uppercase tracking-wider transition-all select-none cursor-pointer bg-slate-50/70 hover:bg-slate-50"
               >
-                <User className="w-4 h-4 text-gray-500 lg:mr-1" />
-                <span className="hidden lg:inline">Acceso Comercios</span>
-              </Link>
-            )}
+                <span>Portal & Blogs</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <>
+                  {/* Backdrop click dismisser */}
+                  <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                  
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-gray-150 shadow-lg py-2.5 z-20 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="px-3.5 py-1 border-b border-gray-100 mb-2">
+                      <span className="block text-[9px] font-black uppercase text-gray-400 tracking-wider">Comunidad y Accesos</span>
+                    </div>
+
+                    {/* 1. Blogs & Novedades Option */}
+                    <Link
+                      to={isDemoMode ? "/demo/blogs" : "/blogs"}
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="flex items-start space-x-3 px-3.5 py-2.5 hover:bg-slate-50 text-xs text-slate-700 transition-colors"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mt-1.5 shrink-0" />
+                      <div>
+                        <span className="block font-black text-brand-blue uppercase tracking-wide text-3xs">Blogs & Novedades</span>
+                        <span className="block text-[9px] text-gray-450 mt-0.5 normal-case font-medium">Ciencia, leyes, eventos y salud animal</span>
+                      </div>
+                    </Link>
+
+                    {/* 1b. Adopciones Cercanas Option */}
+                    <Link
+                      to={isDemoMode ? "/demo/adopciones" : "/adopciones"}
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="flex items-start space-x-3 px-3.5 py-2.5 hover:bg-slate-50 text-xs text-slate-700 transition-colors border-t border-gray-50"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse mt-1.5 shrink-0" />
+                      <div>
+                        <span className="block font-black text-rose-700 uppercase tracking-wide text-3xs">Adopciones Cercanas</span>
+                        <span className="block text-[9px] text-gray-450 mt-0.5 normal-case font-medium">Busca mascotas en adopción por distancia</span>
+                      </div>
+                    </Link>
+
+                    {/* 1c. Red de Envíos Privados Option */}
+                    <Link
+                      to={isDemoMode ? "/demo/delivery-portal" : "/delivery-portal"}
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="flex items-start space-x-3 px-3.5 py-2.5 hover:bg-slate-50 text-xs text-slate-700 transition-colors border-t border-gray-50"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse mt-1.5 shrink-0" />
+                      <div>
+                        <span className="block font-black text-amber-700 uppercase tracking-wide text-3xs">Envíos Privados Independientes</span>
+                        <span className="block text-[9px] text-gray-450 mt-0.5 normal-case font-medium">Inscríbete como repartidor o cotiza despachos locales</span>
+                      </div>
+                    </Link>
+
+                    {/* 2. Commerce Entry / Admin Action */}
+                    {currentUser ? (
+                      <>
+                        <Link
+                          to="/admin/dashboard"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="flex items-start space-x-3 px-3.5 py-2.5 hover:bg-slate-50 text-xs text-indigo-750 transition-colors border-t border-gray-50"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-indigo-650 mt-1.5 shrink-0" />
+                          <div>
+                            <span className="block font-black text-indigo-750 uppercase tracking-wide text-3xs">CMS Administrativo</span>
+                            <span className="block text-[9px] text-gray-450 mt-0.5 normal-case font-medium">Gestiona tu comercio o veterinaria</span>
+                          </div>
+                        </Link>
+                        
+                        <div className="border-t border-gray-100 mt-2 pt-2 px-3.5">
+                          <button
+                            onClick={() => {
+                              setIsDropdownOpen(false);
+                              logoutUser();
+                              navigate('/');
+                            }}
+                            className="w-full text-left font-black uppercase tracking-wider text-4xs text-red-650 hover:underline py-1 cursor-pointer"
+                          >
+                            🔒 Salir de la Cuenta
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <Link
+                        to="/auth/login"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-start space-x-3 px-3.5 py-2.5 hover:bg-slate-50 text-xs text-slate-700 transition-colors border-t border-gray-50 animate-fade-in"
+                      >
+                        <User className="w-4 h-4 text-gray-450 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="block font-black text-brand-blue uppercase tracking-wide text-3xs">Acceso Comercios</span>
+                          <span className="block text-[9px] text-gray-450 mt-0.5 normal-case font-medium">Ingreso veterinarias y tiendas socias</span>
+                        </div>
+                      </Link>
+                    )}
+
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 text-gray-700 hover:text-brand-gold transition-all"
+              className="relative p-2.5 text-gray-700 hover:text-brand-gold transition-all cursor-pointer"
             >
               <ShoppingCart className="w-5.2 h-5.2" />
               {totalCartCount > 0 && (

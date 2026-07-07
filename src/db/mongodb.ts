@@ -38,6 +38,7 @@ const UserSchema = new mongoose.Schema({
   firstName: { type: String },
   lastName: { type: String },
   avatarUrl: { type: String },
+  allowBlog: { type: Boolean, default: false },
 });
 
 const StoreSchema = new mongoose.Schema({
@@ -145,6 +146,39 @@ export const StoreDb = mongoose.models.Store || mongoose.model<any>('Store', Sto
 export const CatalogItemDb = mongoose.models.CatalogItem || mongoose.model<any>('CatalogItem', CatalogItemSchema);
 export const OrderDb = mongoose.models.Order || mongoose.model<any>('Order', OrderSchema);
 export const SaaSPaymentDb = mongoose.models.SaaSPayment || mongoose.model<any>('SaaSPayment', SaaSPaymentSchema);
+
+const BlogCommentSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  authorEmail: { type: String, required: true },
+  authorRole: { type: String, required: true },
+  content: { type: String, required: true },
+  createdAt: { type: String, required: true },
+  parentId: { type: String }
+});
+
+const BlogPostSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  storeId: { type: String, required: true },
+  title: { type: String, required: true },
+  slug: { type: String, required: true },
+  content: { type: String, required: true },
+  excerpt: { type: String, required: true },
+  bannerUrl: { type: String },
+  authorEmail: { type: String, required: true },
+  authorName: { type: String, required: true },
+  status: { type: String, required: true, enum: ['DRAFT', 'PUBLISHED'], default: 'DRAFT' },
+  createdAt: { type: String, required: true },
+  updatedAt: { type: String, required: true },
+  tags: { type: [String] },
+  views: { type: Number, default: 0 },
+  likes: { type: Number, default: 0 },
+  dislikes: { type: Number, default: 0 },
+  likedBy: { type: [String], default: [] },
+  dislikedBy: { type: [String], default: [] },
+  comments: { type: [BlogCommentSchema], default: [] },
+});
+
+export const BlogPostDb = mongoose.models.BlogPost || mongoose.model<any>('BlogPost', BlogPostSchema);
 
 
 // --- SEED PROGRAMMATIC DATA GENERATOR ---

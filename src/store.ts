@@ -4,13 +4,14 @@
  */
 
 import { create } from 'zustand';
-import { CatalogItem, Order, CartItem, Store } from './types.js';
+import { CatalogItem, Order, CartItem, Store, DeliveryPartner } from './types.js';
 
 interface PetmallState {
   catalog: CatalogItem[];
   orders: Order[];
   stores: Store[];
   cart: CartItem[];
+  deliveryPartners: DeliveryPartner[];
   currentStore: Store | null;
   currentUser: {
     email: string;
@@ -27,6 +28,7 @@ interface PetmallState {
   fetchCatalog: () => Promise<void>;
   fetchOrders: () => Promise<void>;
   fetchStores: () => Promise<void>;
+  fetchDeliveryPartners: () => Promise<void>;
   setDemoMode: (active: boolean) => void;
   
   addToCart: (item: CatalogItem, quantity?: number, booking?: { date: string; timeSlot: string }) => void;
@@ -41,9 +43,11 @@ interface PetmallState {
   startSseConnection: () => void;
   createCatalogItem: (data: Partial<CatalogItem>) => Promise<CatalogItem>;
   submitPosSale: (items: { itemId: string; quantity: number }[]) => Promise<{ success: boolean; order?: Order }>;
-  submitCheckout: (orderType: 'DELIVERY' | 'CLICK_AND_COLLECT' | 'SERVICE_BOOKING') => Promise<{ success: boolean; order?: Order }>;
+  submitCheckout: (orderType: 'DELIVERY' | 'CLICK_AND_COLLECT' | 'SERVICE_BOOKING', deliveryData?: any) => Promise<{ success: boolean; order?: Order }>;
   updateOrderStatus: (orderId: string, status: string) => Promise<void>;
   enrollStore: (data: any) => Promise<{ success: boolean; store?: Store }>;
+  registerDeliveryPartner: (data: any) => Promise<any>;
+  rateDeliveryPartner: (id: string, data: any) => Promise<any>;
 }
 
 export const usePetmallStore = create<PetmallState>((set, get) => {
@@ -54,6 +58,7 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
     orders: [],
     stores: [],
     cart: [],
+    deliveryPartners: [],
     currentStore: null,
     currentUser: null,
     sseConnected: false,
@@ -149,7 +154,7 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
       
       let firstName = 'Colaborador';
       let lastName = 'Petmall';
-      let avatarUrl = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120';
+      let avatarUrl = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e2e8f0'/%3E%3Cpath d='M50 56a16 16 0 100-32 16 16 0 000 32zm0 4c-18.5 0-32 10.5-32 20v4h64v-4c0-9.5-13.5-20-32-20z' fill='%23475569'/%3E%3C/svg%3E";
 
       const emailLower = email.toLowerCase();
       let resolvedRole = role;
@@ -254,7 +259,7 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
       };
 
       eventSource.onerror = () => {
-        console.error('[SSE] Connection lost. Reconnecting...');
+        console.warn('[SSE] Connection lost. Reconnecting...');
         set({ sseConnected: false });
       };
     },
@@ -291,7 +296,7 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
       }
     },
 
-    submitCheckout: async (orderType) => {
+    submitCheckout: async (orderType, deliveryData) => {
       const cart = get().cart;
       if (cart.length === 0) throw new Error('El carro está vacío');
 
@@ -307,7 +312,8 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
         body: JSON.stringify({
           items: bodyItems,
           storeId: 'store_1',
-          orderType: orderType
+          orderType: orderType,
+          ...deliveryData
         })
       });
 
@@ -343,6 +349,51 @@ export const usePetmallStore = create<PetmallState>((set, get) => {
       } else {
         const errorData = await res.json();
         throw new Error(errorData.error || 'No se pudo enrolar el comercio');
+      }
+    },
+
+    fetchDeliveryPartners: async () => {
+      try {
+        const res = await fetch('/api/delivery/partners');
+        if (res.ok) {
+          const data = await res.json();
+          set({ deliveryPartners: data });
+        }
+      } catch (err) {
+        console.error('Error fetching delivery partners:', err);
+      }
+    },
+
+    registerDeliveryPartner: async (data) => {
+      const res = await fetch('/api/delivery/partners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        const response = await res.json();
+        await get().fetchDeliveryPartners();
+        return response;
+      } else {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'No se pudo inscribir como repartidor');
+      }
+    },
+
+    rateDeliveryPartner: async (id, data) => {
+      const res = await fetch(`/api/delivery/partners/${id}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        const response = await res.json();
+        await get().fetchDeliveryPartners();
+        await get().fetchOrders(); // Refresh orders
+        return response;
+      } else {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'No se pudo enviar la evaluación');
       }
     }
   };

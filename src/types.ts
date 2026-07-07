@@ -38,6 +38,38 @@ export interface Store {
   planName?: string;
   isTrial?: boolean;
   trialDaysLeft?: number;
+  blogEnabled?: boolean; // Enabled by store admin if plan supports it
+}
+
+export interface BlogComment {
+  id: string;
+  authorEmail: string;
+  authorRole: string; // 'CUSTOMER' | 'STORE_OWNER' | 'STORE_STAFF' | 'SUPER_USER'
+  content: string;
+  createdAt: string;
+  parentId?: string; // ID of comment being replied to
+}
+
+export interface BlogPost {
+  id: string;
+  storeId: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string;
+  bannerUrl?: string;
+  authorEmail: string;
+  authorName: string;
+  status: 'DRAFT' | 'PUBLISHED';
+  createdAt: string;
+  updatedAt: string;
+  tags?: string[];
+  views?: number;
+  likes?: number;
+  dislikes?: number;
+  likedBy?: string[];
+  dislikedBy?: string[];
+  comments?: BlogComment[];
 }
 
 export interface ProductDetails {
@@ -103,6 +135,13 @@ export interface Order {
   status: OrderStatus;
   total: number;
   createdAt: string;
+  // Private delivery system extension
+  deliveryPartnerId?: string;
+  deliveryFee?: number;
+  deliveryAddressCoords?: [number, number];
+  deliveryAddressText?: string;
+  deliveryStatus?: 'CONFIRMED' | 'COLLECTING' | 'IN_TRANSIT' | 'DELIVERED';
+  deliveryRated?: boolean;
 }
 
 // Global UI State
@@ -128,5 +167,19 @@ export interface SaaSPayment {
   planName: string;
   paymentMethod: string;
   billingPeriod: string; // e.g. "Febrero 2026", "Marzo 2026"
+}
+
+export interface DeliveryPartner {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  vehicle: string;
+  fee: number;
+  coverageCenter: [number, number]; // [lat, lng]
+  coverageRadius: number; // in km
+  rating: number;
+  ratingsCount: number;
+  reviews?: { rating: number; comment: string; author: string; date: string }[];
 }
 

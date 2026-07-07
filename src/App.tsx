@@ -15,7 +15,12 @@ import MarketplaceHome from './components/MarketplaceHome.js';
 import ItemDetail from './components/ItemDetail.js';
 import CheckoutPage from './components/CheckoutPage.js';
 import StoreDetail from './components/StoreDetail.js';
+import StoreBlogsList from './components/StoreBlogsList.js';
+import StoreBlogDetail from './components/StoreBlogDetail.js';
+import GlobalBlogsList from './components/GlobalBlogsList.js';
 import AdminEnrollment from './components/AdminEnrollment.js';
+import NearbyAdoptions from './components/NearbyAdoptions.js';
+import DeliveryPartnerPortal from './components/DeliveryPartnerPortal.js';
 
 // Merchant Auth Views
 import AdminLogin from './components/AdminLogin.js';
@@ -74,7 +79,7 @@ function PathWatcher() {
 }
 
 export default function App() {
-  const { startSseConnection, fetchStores, fetchCatalog, fetchOrders } = usePetmallStore();
+  const { startSseConnection, fetchStores, fetchCatalog, fetchOrders, fetchDeliveryPartners } = usePetmallStore();
 
   useEffect(() => {
     // Bootstrap initial data & setup live stream connection
@@ -82,6 +87,7 @@ export default function App() {
     fetchStores();
     fetchCatalog();
     fetchOrders();
+    fetchDeliveryPartners();
   }, []);
 
   return (
@@ -92,6 +98,14 @@ export default function App() {
         {/* === A. FLUJO PÚBLICO (Marketplace B2C) === */}
         <Route 
           path="/" 
+          element={
+            <MainLayout>
+              <MarketplaceHome />
+            </MainLayout>
+          } 
+        />
+        <Route 
+          path="/search" 
           element={
             <MainLayout>
               <MarketplaceHome />
@@ -118,10 +132,55 @@ export default function App() {
         />
         
         <Route 
+          path="/blogs" 
+          element={
+            <MainLayout>
+              <GlobalBlogsList />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/delivery-portal" 
+          element={
+            <MainLayout>
+              <DeliveryPartnerPortal />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/adopciones" 
+          element={
+            <MainLayout>
+              <NearbyAdoptions />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
           path="/store/:id" 
           element={
             <MainLayout>
               <StoreDetail />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/store/:id/blogs" 
+          element={
+            <MainLayout>
+              <StoreBlogsList />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/store/:id/blogs/:blogId" 
+          element={
+            <MainLayout>
+              <StoreBlogDetail />
             </MainLayout>
           } 
         />
@@ -138,6 +197,14 @@ export default function App() {
         {/* === DEMO ENVIRONMENT ROUTING === */}
         <Route 
           path="/demo" 
+          element={
+            <MainLayout>
+              <MarketplaceHome />
+            </MainLayout>
+          } 
+        />
+        <Route 
+          path="/demo/search" 
           element={
             <MainLayout>
               <MarketplaceHome />
@@ -162,10 +229,46 @@ export default function App() {
         />
         
         <Route 
+          path="/demo/blogs" 
+          element={
+            <MainLayout>
+              <GlobalBlogsList />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/demo/adopciones" 
+          element={
+            <MainLayout>
+              <NearbyAdoptions />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
           path="/demo/store/:id" 
           element={
             <MainLayout>
               <StoreDetail />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/demo/store/:id/blogs" 
+          element={
+            <MainLayout>
+              <StoreBlogsList />
+            </MainLayout>
+          } 
+        />
+
+        <Route 
+          path="/demo/store/:id/blogs/:blogId" 
+          element={
+            <MainLayout>
+              <StoreBlogDetail />
             </MainLayout>
           } 
         />
