@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,7 +9,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import dotenv from 'dotenv';
 import { CatalogItem, Order, Store, SaaSPayment, BlogPost } from './src/types.js'; // typescript files would need matching js/ts extension
 import { 
   connectMongoDB, 
@@ -24,8 +24,6 @@ import {
   SEED_STORES, 
   seedMongoDb 
 } from './src/db/mongodb.js';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
