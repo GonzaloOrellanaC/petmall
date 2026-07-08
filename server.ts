@@ -2250,9 +2250,9 @@ async function startServer() {
   const serveHtmlWithMeta = async (req: express.Request, res: express.Response, meta: { title: string; description: string; image: string }) => {
     try {
       const isProd = process.env.NODE_ENV === 'production';
-      const indexPath = isProd 
-        ? path.join(process.cwd(), 'dist', 'index.html')
-        : path.join(process.cwd(), 'index.html');
+      const indexPath = __dirname.endsWith('dist')
+        ? path.join(__dirname, 'index.html')
+        : (isProd ? path.join(__dirname, 'dist', 'index.html') : path.join(__dirname, 'index.html'));
       
       let html = '';
       try {
@@ -2427,7 +2427,7 @@ async function startServer() {
       app.use(viteInstance.middlewares);
     }
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = __dirname.endsWith('dist') ? __dirname : path.join(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

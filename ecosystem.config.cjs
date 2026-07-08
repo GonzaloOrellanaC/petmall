@@ -7,8 +7,7 @@ module.exports = {
   apps: [
     {
       name: 'petmall-server',
-      script: './server.ts',
-      interpreter: './node_modules/.bin/tsx',
+      script: './dist/server.cjs',
       instances: 1,
       autorestart: true,
       watch: false,
