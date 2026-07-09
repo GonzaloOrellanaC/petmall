@@ -25,8 +25,16 @@ import {
   seedMongoDb 
 } from './src/db/mongodb.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let _filename = '';
+let _dirname = '';
+
+if (typeof import.meta !== 'undefined' && import.meta.url) {
+  _filename = fileURLToPath(import.meta.url);
+  _dirname = path.dirname(_filename);
+} else {
+  _filename = typeof __filename !== 'undefined' ? __filename : '';
+  _dirname = typeof __dirname !== 'undefined' ? __dirname : '';
+}
 
 // Concurrency Lock Manager: Prevents race conditions over physical stock or service capacity
 class LockManager {
@@ -2250,9 +2258,9 @@ async function startServer() {
   const serveHtmlWithMeta = async (req: express.Request, res: express.Response, meta: { title: string; description: string; image: string }) => {
     try {
       const isProd = process.env.NODE_ENV === 'production';
-      const indexPath = __dirname.endsWith('dist')
-        ? path.join(__dirname, 'index.html')
-        : (isProd ? path.join(__dirname, 'dist', 'index.html') : path.join(__dirname, 'index.html'));
+      const indexPath = _dirname.endsWith('dist')
+        ? path.join(_dirname, 'index.html')
+        : (isProd ? path.join(_dirname, 'dist', 'index.html') : path.join(_dirname, 'index.html'));
       
       let html = '';
       try {
@@ -2427,7 +2435,7 @@ async function startServer() {
       app.use(viteInstance.middlewares);
     }
   } else {
-    const distPath = __dirname.endsWith('dist') ? __dirname : path.join(__dirname, 'dist');
+    const distPath = _dirname.endsWith('dist') ? _dirname : path.join(_dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
